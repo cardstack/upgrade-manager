@@ -16,7 +16,9 @@
   "scripts": {
     "lint:fix": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts}' && tslint --fix --config tslint.json --project tsconfig.json",
     "lint": "tslint --config tslint.json --project tsconfig.json",
-    "test": "mocha --exit --recursive 'test/**/*.test.ts'",
+    "test:plugin": "mocha --exit --recursive 'test/plugin/**/*.test.ts'",
+    "test:sol": "./node_modules/.bin/hardhat test",
+    "test": "yarn test:sol && yarn test:plugin",
     "build": "tsc",
     "watch": "tsc -w",
     "prepublishOnly": "npm run build"
@@ -29,21 +31,37 @@
     "README.md"
   ],
   "devDependencies": {
+    "@ethersproject/providers": "^5.4.7",
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "@nomiclabs/hardhat-ethers": "^2.0.0",
+    "@nomiclabs/hardhat-etherscan": "^3.0.0",
+    "@typechain/ethers-v5": "^10.1.0",
+    "@typechain/hardhat": "^6.1.2",
     "@types/chai": "^4.1.7",
     "@types/fs-extra": "^5.0.4",
     "@types/mocha": "^5.2.6",
     "@types/node": "^8.10.38",
     "chai": "^4.2.0",
+    "ethers": "^5.4.7",
     "hardhat": "^2.0.0",
+    "hardhat-gas-reporter": "^1.0.8",
     "mocha": "^7.1.2",
     "prettier": "2.0.5",
+    "solidity-coverage": "^0.8.1",
     "ts-node": "^8.1.0",
     "tslint": "^5.16.0",
     "tslint-config-prettier": "^1.18.0",
     "tslint-plugin-prettier": "^2.0.1",
+    "typechain": "^8.1.0",
     "typescript": "^4.0.3"
   },
   "peerDependencies": {
     "hardhat": "^2.0.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts-upgradeable": "^4.8.0-rc.1",
+    "@openzeppelin/hardhat-upgrades": "^1.21.0"
   }
 }
