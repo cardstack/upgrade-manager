@@ -1,3 +1,10 @@
+# @cardstack/upgrade-manager
+
+The upgrade manager allows managing a set of smart contracts deployed to a
+chain, handling proxy upgrade and batched configuration application, with
+tooling to support mangement with a M-of-N gnosis safe.
+
+
 ## Testing
 
 Running `yarn test` will run every test located in the `test/` folder. They
@@ -7,12 +14,6 @@ use [mocha](https://mochajs.org) and [chai](https://www.chaijs.com/)
 
 You can check if your code style is correct by running `yarn lint`, and fix
 it with `yarn lint:fix`.
-
-# @cardstack/upgrade-manager
-
-The upgrade manager allows managing a set of smart contracts deployed to a
-chain, handling proxy upgrade and batched configuration application, with
-tooling to support mangement with a M-of-N gnosis safe.
 
 ## Installation
 TODO
