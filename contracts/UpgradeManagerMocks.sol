@@ -1,32 +1,17 @@
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 pragma abicoder v1;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-
+import "./Ownable.sol";
 import "./UpgradeManager.sol";
 
-contract UpgradeableContractV1 is OwnableUpgradeable {
-  function initialize(address owner) external virtual initializer {
-    __Ownable_init();
-    if (_msgSender() != owner) {
-      _transferOwnership(owner);
-    }
-  }
-
+contract UpgradeableContractV1 is Ownable {
   function version() external pure returns (string memory) {
     return "1";
   }
 }
 
-contract UpgradeableContractV2 is OwnableUpgradeable {
+contract UpgradeableContractV2 is Ownable {
   string public foo;
-
-  function initialize(address owner) external virtual initializer {
-    __Ownable_init();
-    if (_msgSender() != owner) {
-      _transferOwnership(owner);
-    }
-  }
 
   function version() external pure returns (string memory) {
     return "2";

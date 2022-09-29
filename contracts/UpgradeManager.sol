@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 pragma abicoder v1;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 
+import "./Ownable.sol";
 import "./interfaces/IProxyAdmin.sol";
 
-
-contract UpgradeManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
   struct AdoptedContract {
@@ -24,6 +23,7 @@ contract UpgradeManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
   uint256 public constant MAXIMUM_CONTRACTS = 100;
 
   uint256 public nonce;
+  string public version;
 
   EnumerableSetUpgradeable.AddressSet internal upgradeProposers;
   address public versionManager;
@@ -50,6 +50,7 @@ contract UpgradeManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     bytes encodedCall
   );
   event ChangesWithdrawn(string indexed contractId);
+  event Upgraded(string indexed version);
 
   modifier onlyProposers() {
     if (upgradeProposers.contains(msg.sender)) {
@@ -59,21 +60,11 @@ contract UpgradeManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
   }
 
-  function initialize(address owner) external virtual initializer {
-    __Ownable_init();
-    if (_msgSender() != owner) {
-      _transferOwnership(owner);
-    }
-  }
-
   /**
    * @dev set up the contract
    * @param  _upgradeProposers the set of addresses allowed to propose upgrades
    */
-  function setup(address[] memory _upgradeProposers)
-    external
-    onlyOwner
-  {
+  function setup(address[] memory _upgradeProposers) external onlyOwner {
     for (uint256 i = 0; i < _upgradeProposers.length; i++) {
       _addUpgradeProposer(_upgradeProposers[i]);
     }
@@ -172,11 +163,12 @@ contract UpgradeManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     _call(adoptedContractAddresses[_contractId], encodedCall);
   }
 
-  function upgradeProtocol(string calldata _newVersion, uint256 _nonce)
+  function upgrade(string calldata _newVersion, uint256 _nonce)
     external
     onlyOwner
     nonReentrant
   {
+    require(bytes(_newVersion).length > 0, "New version must be set");
     require(_nonce == nonce, "Invalid nonce");
     uint256 count = proxiesWithPendingChanges.length();
     for (uint256 i = 0; i < count; i++) {
@@ -187,8 +179,9 @@ contract UpgradeManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
       _applyChanges(proxyAddress);
       _resetChanges(proxyAddress);
     }
-
+    version = _newVersion;
     nonce++;
+    emit Upgraded(version);
   }
 
   function disown(string calldata _contractId, address _newOwner)
