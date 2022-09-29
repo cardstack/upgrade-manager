@@ -19,6 +19,7 @@ jobs:
       - run: yarn --prefer-offline --frozen-lockfile
       - run: yarn recompile
       - run: yarn test
+
   coverage:
     runs-on: ubuntu-latest
     steps:
@@ -29,6 +30,7 @@ jobs:
           cache: "yarn"
       - run: yarn --prefer-offline --frozen-lockfile
       - run: yarn coverage
+
   lint:
     runs-on: ubuntu-latest
     steps:
