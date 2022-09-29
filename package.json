@@ -17,7 +17,7 @@
     "lint:js": "./node_modules/.bin/eslint .",
     "lint:sol": "./node_modules/.bin/solhint ./contracts/\\*\\*/\\*.sol -w 0",
     "lint": "yarn lint:js && yarn lint:sol && yarn lint:contract-size",
-    "test:plugin": "mocha --exit --recursive 'test/plugin/**/*.test.ts'",
+    "test:plugin": "mocha --exit --recursive 'plugin-tests/**/*.test.ts'",
     "test:sol": "./node_modules/.bin/hardhat test --typecheck",
     "coverage": "env SILENCE_COMPILER_WARNINGS=true ./node_modules/.bin/hardhat coverage",
     "lint:contract-size": "{ ./node_modules/.bin/hardhat size-contracts | tee /dev/fd/3 | grep -q 'exceed the size limit for mainnet deployment' && exit 1; } 3>&1 || echo 'All contracts within size limit'",
