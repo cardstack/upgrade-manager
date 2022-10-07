@@ -18,7 +18,7 @@
     "lint:js": "./node_modules/.bin/eslint --max-warnings 0 .",
     "lint:sol": "./node_modules/.bin/solhint ./contracts/\\*\\*/\\*.sol -w 0",
     "lint": "yarn lint:js && yarn lint:sol && yarn lint:contract-size",
-    "test:plugin": "mocha $INSPECT_FLAG --exit --recursive 'plugin-tests/**/*.test.ts'",
+    "test:plugin": "./node_modules/.bin/tsc && mocha $INSPECT_FLAG --exit --recursive 'plugin-tests/**/*.test.ts'",
     "test:plugin:inspect": "env INSPECT_FLAG='--inspect-brk' yarn test:plugin",
     "test:sol": "./node_modules/.bin/hardhat test --typecheck",
     "coverage": "env SILENCE_COMPILER_WARNINGS=true ./node_modules/.bin/hardhat coverage",
