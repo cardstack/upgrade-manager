@@ -1,49 +1,141 @@
-import { extendConfig, extendEnvironment } from "hardhat/config";
-import { lazyObject } from "hardhat/plugins";
-import { HardhatConfig, HardhatUserConfig } from "hardhat/types";
-import path from "path";
+import { extendConfig, subtask, task, types } from "hardhat/config";
+// import { lazyObject } from "hardhat/plugins";
+import {
+  HardhatConfig,
+  HardhatUserConfig,
+  UpgradeManagerContractConfig,
+} from "hardhat/types";
+import { deploy } from "./deploy";
 
-import { ExampleHardhatRuntimeEnvironmentField } from "./ExampleHardhatRuntimeEnvironmentField";
+// import { ExampleHardhatRuntimeEnvironmentField } from "./ExampleHardhatRuntimeEnvironmentField";
 // This import is needed to let the TypeScript compiler know that it should include your type
 // extensions in your npm package's types file.
+
 import "./type-extensions";
+import { getDeployAddress, log } from "./util";
+
+import "@nomiclabs/hardhat-ethers";
+import { TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS } from "hardhat/builtin-tasks/task-names";
+import { join } from "path";
 
 extendConfig(
   (config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
-    // We apply our default config here. Any other kind of config resolution
-    // or normalization should be placed here.
-    //
-    // `config` is the resolved config, which will be used during runtime and
-    // you should modify.
-    // `userConfig` is the config as provided by the user. You should not modify
-    // it.
-    //
-    // If you extended the `HardhatConfig` type, you need to make sure that
-    // executing this function ensures that the `config` object is in a valid
-    // state for its type, including its extensions. For example, you may
-    // need to apply a default value, like in this example.
-    const userPath = userConfig.paths?.newPath;
-
-    let newPath: string;
-    if (userPath === undefined) {
-      newPath = path.join(config.paths.root, "newPath");
-    } else {
-      if (path.isAbsolute(userPath)) {
-        newPath = userPath;
-      } else {
-        // We resolve relative paths starting from the project's root.
-        // Please keep this convention to avoid confusion.
-        newPath = path.normalize(path.join(config.paths.root, userPath));
+    const contracts = (userConfig.upgradeManager?.contracts || []).map(
+      (config): UpgradeManagerContractConfig => {
+        if (typeof config == "string") {
+          return {
+            id: config,
+            contract: config,
+            singleton: false,
+          };
+        } else {
+          return { singleton: false, ...config };
+        }
       }
-    }
-
-    config.paths.newPath = newPath;
+    );
+    config.upgradeManager = { contracts };
   }
 );
 
-extendEnvironment((hre) => {
-  // We add a field to the Hardhat Runtime Environment here.
-  // We use lazyObject to avoid initializing things until they are actually
-  // needed.
-  hre.example = lazyObject(() => new ExampleHardhatRuntimeEnvironmentField());
+// subtask(
+//   TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS,
+//   async (_, { config }, runSuper) => {
+//     throw new Error("asdf");
+//     let result = runSuper();
+//     console.log({ result });
+//     return result;
+//     // const mainContracts = await glob(
+//     //   join(config.paths.root, "contracts/**/*.sol")
+//     // );
+//     // const testContracts = await glob(join(config.paths.root, "test/**/*.sol"));
+//     // // and so on
+
+//     // return [
+//     //   ...mainContracts,
+//     //   ...testContracts,
+//     //   // and so on
+//     // ].map(path.normalize); // not sure if normalize is needed here
+//   }
+// );
+
+task("deploy:status", "shows deploy status", async () => {
+  console.log("Deploy status");
 });
+
+task("deploy", "runs the deploy process")
+  .addPositionalParam(
+    "deployNetwork",
+    "The network to deploy to",
+    undefined,
+    types.string,
+    false
+  )
+  .addOptionalParam(
+    "fork",
+    "Run the deploy against a fork of the network",
+    false,
+    types.boolean
+  )
+  .addOptionalParam(
+    "dryRun",
+    "Preview what would happen, without actually writing to the blockchain",
+    false,
+    types.boolean
+  )
+  .addOptionalParam(
+    "derivationPath",
+    "Derivation path to use when using mnemonic or trezor",
+    "m/44'/60'/0'/0",
+    types.string
+  )
+  .addOptionalParam(
+    "impersonateAddress",
+    "Address to impersonate deploying from (usually only makes sense whilst forking)",
+    undefined,
+    types.string
+  )
+  .setAction(
+    async (
+      {
+        deployNetwork,
+        fork,
+        dryRun,
+        impersonateAddress,
+        derivationPath,
+      }: {
+        deployNetwork: string;
+        fork: boolean;
+        dryRun: boolean;
+        impersonateAddress?: string;
+        derivationPath?: string;
+      },
+      hre
+    ) => {
+      // sourceNetworking network is the "source" - the current blockchain
+      // state to use - if not forking, it's also the destination, forking
+      // the destination would be localhost or hardhat depending on if
+      // there's a seperate hardhat node running on localhost
+
+      let targetNetwork = fork ? "localhost" : deployNetwork;
+
+      log("Deploying to", targetNetwork);
+
+      if (fork) {
+        log(`(Forking ${deployNetwork})`);
+      }
+
+      let deployConfig = {
+        hre,
+        sourceNetwork: deployNetwork,
+        targetNetwork,
+        forking: fork,
+        deployAddress: impersonateAddress,
+        dryRun,
+        derivationPath,
+      };
+
+      let deployAddress: string = await getDeployAddress(deployConfig);
+
+      await deploy({ ...deployConfig, deployAddress });
+    }
+  );

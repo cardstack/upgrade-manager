@@ -12,10 +12,6 @@
     "forceConsistentCasingInFileNames": true
   },
   "exclude": ["dist", "node_modules"],
-  "include": [
-    "./test",
-    "./src",
-    "./typechain-types"
-  ],
-  "files": ["./hardhat.config.ts"]
+  "include": ["./test", "./src", "./typechain-types"],
+  "files": ["./hardhat.config.ts", "decs.d.ts"]
 }
