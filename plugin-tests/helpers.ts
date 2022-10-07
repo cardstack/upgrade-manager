@@ -2,7 +2,7 @@ import { resetHardhatContext } from "hardhat/plugins-testing";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import path from "path";
 import { stdout } from "test-console";
-import { getErrorMessageAndStack } from "../src/util";
+import { getErrorMessageAndStack } from "../shared";
 
 declare module "mocha" {
   interface Context {

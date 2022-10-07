@@ -23,8 +23,9 @@ describe("Basic project setup", function () {
 
   useEnvironment("upgrade-managed-project");
 
-  it.only("Should add the contract init spec to the config", function () {
-    console.log(this.hre.config);
+  it("Should add the contract init spec to the config", function () {
+    // Note: if config tests are failing, check for requiring app code from the test helpers, that can cause
+    // problems with the hre here being the plugin's default HRE not the fixture environment hre
     expect(this.hre.config.upgradeManager.contracts).to.deep.equal([
       {
         id: "MockUpgradeableContract",

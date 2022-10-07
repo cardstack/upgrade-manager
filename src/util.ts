@@ -17,6 +17,7 @@ import {
   RetryCallback,
 } from "./types";
 import { UpgradeManager } from "../typechain-types";
+import { getErrorMessageAndStack } from "../shared";
 
 export function log(...strs: string[]) {
   console.log(colors.blue(`[Deploy]`), ...strs);
@@ -181,14 +182,6 @@ export async function retry<T>(
   } while (attempts < maxAttempts);
 
   throw new Error("Reached max retry attempts");
-}
-
-export function getErrorMessageAndStack(error: unknown): {
-  message: string;
-  stack?: string;
-} {
-  if (error instanceof Error) return error;
-  return { message: String(error), stack: new Error().stack };
 }
 
 async function delay(ms: number) {
