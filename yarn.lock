@@ -6445,6 +6445,11 @@ rlp@^2.0.0, rlp@^2.2.3, rlp@^2.2.4:
   dependencies:
     bn.js "^5.2.0"
 
+rmrf@^2.0.4:
+  version "2.0.4"
+  resolved "https://registry.yarnpkg.com/rmrf/-/rmrf-2.0.4.tgz#3e2fb0d4d02dcbd57223853b5efb074c64812473"
+  integrity sha512-kvZVgjj6l/J1GlGGXyeKvch1+4nhfkdPRGToXJeUgr3T9AHmDDkZOCLyoY0m6MyycYNb+ZvBR9FdI58xhmczDQ==
+
 run-async@^2.2.0:
   version "2.4.1"
   resolved "https://registry.yarnpkg.com/run-async/-/run-async-2.4.1.tgz#8440eccf99ea3e70bd409d49aab88e10c189a455"

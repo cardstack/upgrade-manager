@@ -14,23 +14,26 @@
     "hardhat-plugin"
   ],
   "scripts": {
-    "recompile": "./node_modules/.bin/hardhat clean && ./node_modules/.bin/hardhat compile",
+    "compile": " ./node_modules/.bin/hardhat compile && ./node_modules/.bin/hardhat run ./src/copy-compilation-result.ts",
+    "recompile": "yarn clean && yarn compile",
+    "clean": "./node_modules/.bin/hardhat clean",
     "lint:js": "./node_modules/.bin/eslint --max-warnings 0 .",
     "lint:sol": "./node_modules/.bin/solhint ./contracts/\\*\\*/\\*.sol -w 0",
     "lint": "yarn lint:js && yarn lint:sol && yarn lint:contract-size",
-    "test:plugin": "./node_modules/.bin/tsc && mocha $INSPECT_FLAG --exit --recursive 'plugin-tests/**/*.test.ts'",
+    "test:plugin": "yarn build && mocha $INSPECT_FLAG --exit --recursive 'plugin-tests/**/*.test.ts'",
     "test:plugin:inspect": "env INSPECT_FLAG='--inspect-brk' yarn test:plugin",
     "test:sol": "./node_modules/.bin/hardhat test --typecheck",
     "coverage": "env SILENCE_COMPILER_WARNINGS=true ./node_modules/.bin/hardhat coverage",
     "lint:contract-size": "{ ./node_modules/.bin/hardhat size-contracts | tee /dev/fd/3 | grep -q 'exceed the size limit for mainnet deployment' && exit 1; } 3>&1 || echo 'All contracts within size limit'",
     "test": "yarn test:sol && yarn test:plugin",
-    "build": "tsc",
+    "build": "node_modules/.bin/tsc && yarn compile",
     "watch": "tsc -w",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "yarn clean && npm run build"
   },
   "files": [
     "dist/src/",
     "src/",
+    "UpgradeManager.sol.json",
     "contracts",
     "LICENSE",
     "README.md"
@@ -63,6 +66,7 @@
     "mocha": "^7.1.2",
     "prettier": "^2.7.1",
     "prettier-plugin-solidity": "^1.0.0-beta.24",
+    "rmrf": "^2.0.4",
     "solhint": "^3.3.7",
     "solidity-coverage": "^0.8.1",
     "test-console": "^2.0.0",

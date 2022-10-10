@@ -3,8 +3,11 @@ import { HardhatUserConfig } from "hardhat/types";
 
 import "../../../src/index";
 
+import "@nomiclabs/hardhat-ethers";
+import "@openzeppelin/hardhat-upgrades";
+
 const config: HardhatUserConfig = {
-  solidity: "0.7.3",
+  solidity: "0.8.17",
   defaultNetwork: "hardhat",
   upgradeManager: {
     contracts: [

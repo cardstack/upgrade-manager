@@ -1,4 +1,4 @@
-import { extendConfig, subtask, task, types } from "hardhat/config";
+import { extendConfig, task, types } from "hardhat/config";
 // import { lazyObject } from "hardhat/plugins";
 import {
   HardhatConfig,
@@ -13,10 +13,6 @@ import { deploy } from "./deploy";
 
 import "./type-extensions";
 import { getDeployAddress, log } from "./util";
-
-import "@nomiclabs/hardhat-ethers";
-import { TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS } from "hardhat/builtin-tasks/task-names";
-import { join } from "path";
 
 extendConfig(
   (config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
@@ -36,27 +32,6 @@ extendConfig(
     config.upgradeManager = { contracts };
   }
 );
-
-// subtask(
-//   TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS,
-//   async (_, { config }, runSuper) => {
-//     throw new Error("asdf");
-//     let result = runSuper();
-//     console.log({ result });
-//     return result;
-//     // const mainContracts = await glob(
-//     //   join(config.paths.root, "contracts/**/*.sol")
-//     // );
-//     // const testContracts = await glob(join(config.paths.root, "test/**/*.sol"));
-//     // // and so on
-
-//     // return [
-//     //   ...mainContracts,
-//     //   ...testContracts,
-//     //   // and so on
-//     // ].map(path.normalize); // not sure if normalize is needed here
-//   }
-// );
 
 task("deploy:status", "shows deploy status", async () => {
   console.log("Deploy status");

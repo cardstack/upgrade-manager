@@ -4,6 +4,7 @@ import glob from "glob";
 import difference from "lodash/difference";
 import { shuffle } from "lodash";
 import { PendingChanges, DeployConfig } from "./types";
+
 import {
   deployedCodeMatches,
   deployedImplementationMatches,
@@ -17,6 +18,7 @@ import {
   retryAndWaitForNonceIncrease,
   writeMetadata,
 } from "./util";
+import { getProxyAdminFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
 
 export default async function (
   config: DeployConfig
@@ -51,36 +53,6 @@ export default async function (
     let { id: contractId, contract: contractName, singleton } = contractConfig;
 
     log("Contract:", contractId);
-
-    let init = [owner];
-
-    init = await Promise.all(
-      init.map(async (i) => {
-        if (typeof i !== "string") {
-          return i;
-        }
-        let iParts = i.split(".");
-        if (iParts.length === 1) {
-          return i;
-        }
-        let [id, prop] = iParts;
-        switch (prop) {
-          case "address": {
-            let address = await upgradeManager.adoptedContractAddresses(id);
-            if (address == ethers.constants.AddressZero) {
-              throw new Error(
-                `The address for contract ${id} has not been derived yet. Cannot initialize ${contractId} with ${i}`
-              );
-            }
-            return address;
-          }
-          default:
-            throw new Error(
-              `Do not know how to handle property "${prop}" from ${i} when processing the init args for ${contractId}`
-            );
-        }
-      })
-    );
 
     let proxyAddress = await upgradeManager.adoptedContractAddresses(
       contractId
@@ -164,7 +136,7 @@ export default async function (
         let instance = await deployNewProxyAndImplementation(
           config,
           contractName,
-          init
+          [upgradeManager.address]
         );
 
         log(
@@ -175,12 +147,9 @@ export default async function (
           instance.address
         );
 
-        let proxyAdmin = await ethers.getContractAt(
-          "IProxyAdmin",
-          proxyAdminAddress,
-          getSigner(config)
-        );
-
+        let signer = await getSigner(config);
+        let ProxyAdmin = await getProxyAdminFactory(config.hre, signer);
+        let proxyAdmin = ProxyAdmin.attach(proxyAdminAddress);
         let proxyAdminOwner = await proxyAdmin.owner();
         if (proxyAdminOwner !== upgradeManager.address) {
           log(
@@ -203,17 +172,9 @@ export default async function (
   if (
     (await upgradeManager.versionManager()) === ethers.constants.AddressZero
   ) {
-    let versionManagerAddress = await upgradeManager.adoptedContractAddresses(
-      "VersionManager"
-    );
-    log(
-      "Upgrade Manager not setup, setting up now with proposer",
-      owner,
-      "and version manager",
-      versionManagerAddress
-    );
+    log("Upgrade Manager not setup, setting up now with proposer", owner);
     await retryAndWaitForNonceIncrease(config, () =>
-      upgradeManager.setup([owner], versionManagerAddress)
+      upgradeManager.setup([owner])
     );
   }
 

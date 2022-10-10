@@ -1,9 +1,13 @@
+import { existsSync, readFileSync, unlinkSync } from "fs";
+import { readJSONSync } from "fs-extra";
 import { resetHardhatContext } from "hardhat/plugins-testing";
-import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
+import { Context } from "mocha";
 import path from "path";
+import rmrf from "rmrf";
 import { stdout } from "test-console";
 import { getErrorMessageAndStack } from "../shared";
-
+import { UpgradeManager } from "../typechain-types";
 declare module "mocha" {
   interface Context {
     hre: HardhatRuntimeEnvironment;
@@ -11,8 +15,21 @@ declare module "mocha" {
   }
 }
 
+function resetFixture(environment = "upgrade-managed-project") {
+  let fixturePath = path.join(__dirname, "fixture-projects", environment);
+
+  rmrf(path.join(fixturePath, ".openzeppelin"));
+  let umMetaPath = path.join(
+    fixturePath,
+    "upgrade-manager-deploy-data-hardhat.json"
+  );
+  if (existsSync(umMetaPath)) {
+    unlinkSync(umMetaPath);
+  }
+}
+
 export function useEnvironment(fixtureProjectName: string) {
-  beforeEach("Loading hardhat environment", function () {
+  beforeEach("Loading hardhat environment", async function () {
     if (this.usedEnvironment) {
       throw new Error(
         `Environment ${this.usedEnvironment} already active, cannot activate ${fixtureProjectName}`
@@ -22,12 +39,45 @@ export function useEnvironment(fixtureProjectName: string) {
 
     this.hre = require("hardhat");
     this.usedEnvironment = fixtureProjectName;
+
+    resetFixture(this.usedEnvironment);
+
+    await captureOutput(() => this.hre.run("compile"));
   });
 
   afterEach("Resetting hardhat", function () {
+    resetFixture(this.usedEnvironment);
+
     resetHardhatContext();
     this.usedEnvironment = undefined;
   });
+}
+
+export async function getFixtureProjectUpgradeManager(
+  context: Context
+): Promise<UpgradeManager> {
+  let metadataPath = path.join(
+    __dirname,
+    "fixture-projects",
+    context.usedEnvironment || "never",
+    "upgrade-manager-deploy-data-hardhat.json"
+  );
+
+  let upgradeManagerAddress: string =
+    readJSONSync(metadataPath)["upgradeManagerAddress"];
+
+  let jsonPath = path.join(__dirname, "../UpgradeManager.sol.json");
+  if (!existsSync(jsonPath)) {
+    throw new Error(
+      `Could not locate compiled UpgradeManager at ${jsonPath}, run yarn compile`
+    );
+  }
+  let artifact: Artifact = JSON.parse(readFileSync(jsonPath, "utf-8"));
+
+  return (await context.hre.ethers.getContractAt(
+    artifact.abi,
+    upgradeManagerAddress
+  )) as UpgradeManager;
 }
 
 interface ConsoleCapturedResult<T> {

@@ -1,4 +1,5 @@
-// Importing app code from the test helpers breaks hardhat environment fixtures for some reason
+// Importing app code from the test helpers breaks hardhat environment fixtures for some reason,
+// Likely due to requiring the hre before the tests start running.
 
 // Helpers useful in both tests and plugin task code should live here and be imported from each
 

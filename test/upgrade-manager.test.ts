@@ -169,6 +169,10 @@ describe("UpgradeManager", () => {
     expect(await upgradeManager.version()).to.equal("1.0.0");
   });
 
+  it("reports the contract version", async () => {
+    expect(await upgradeManager.CONTRACT_VERSION()).to.equal(1);
+  });
+
   it("has a set of upgrade proposers", async () => {
     expect(await upgradeManager.getUpgradeProposers()).to.have.members([
       proposer,

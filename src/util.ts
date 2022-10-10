@@ -4,11 +4,11 @@ import { BaseProvider, JsonRpcProvider } from "@ethersproject/providers";
 import { hashBytecodeWithoutMetadata } from "@openzeppelin/upgrades-core";
 import colors from "colors/safe";
 import { prompt } from "enquirer";
-import { Contract, ContractFactory } from "ethers";
-import { existsSync } from "fs";
+import { Contract, ContractFactory, Signer } from "ethers";
+import { existsSync, readFileSync } from "fs";
 import { readJSONSync, writeJsonSync } from "fs-extra";
-import { HardhatNetworkHDAccountsConfig } from "hardhat/types";
-import { resolve } from "path";
+import { Artifact, HardhatNetworkHDAccountsConfig } from "hardhat/types";
+import { join, resolve } from "path";
 import TrezorWalletProvider from "trezor-cli-wallet-provider";
 import {
   DeployConfig,
@@ -16,8 +16,13 @@ import {
   MetadataKey,
   RetryCallback,
 } from "./types";
-import { UpgradeManager } from "../typechain-types";
+import { UpgradeManager, UpgradeManager__factory } from "../typechain-types";
 import { getErrorMessageAndStack } from "../shared";
+import { HardhatPluginError } from "hardhat/plugins";
+import { impersonateAccount } from "@nomicfoundation/hardhat-network-helpers";
+import { getTransparentUpgradeableProxyFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
+
+const PLUGIN_NAME = "upgrade-manager";
 
 export function log(...strs: string[]) {
   console.log(colors.blue(`[Deploy]`), ...strs);
@@ -46,21 +51,24 @@ export async function getDeployAddress(
   if (config.deployAddress) {
     if (config.forking) {
       log(`Impersonating ${config.deployAddress}`);
-      await hre.network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [config.deployAddress],
-      });
+      await impersonateAccount(config.deployAddress);
     }
     return config.deployAddress;
   }
 
   if (sourceNetwork === "hardhat") {
+    if (!hre.ethers.getSigners) {
+      throw new HardhatPluginError(
+        PLUGIN_NAME,
+        "Could not find ethers.getSigners, make sure you have @nomiclabs/hardhat-ethers installed correctly"
+      );
+    }
     let [signer] = await hre.ethers.getSigners();
     deployAddress = signer.address;
   } else if (sourceNetwork === "localhost") {
     deployAddress = getHardhatTestWallet(config).address;
   } else {
-    deployAddress = await getSigner(config).getAddress();
+    deployAddress = await (await getSigner(config)).getAddress();
     if (
       !forking &&
       !(await confirm(
@@ -91,12 +99,23 @@ function getHardhatTestWallet({
   return wallet.connect(provider);
 }
 
-// VoidSigner is the same as Signer but implements TypedDataSigner interface
-export function getSigner(
+export async function getSigner(
   deployConfig: DeployConfigMaybeWithoutDeployAddressYet,
   address?: string
-): VoidSigner {
-  let { hre, forking, deployAddress, targetNetwork } = deployConfig;
+): Promise<Signer> {
+  let { hre, forking, deployAddress, targetNetwork, sourceNetwork } =
+    deployConfig;
+
+  if (sourceNetwork == "hardhat") {
+    let addressForSigner = address || deployAddress;
+    if (addressForSigner) {
+      return deployConfig.hre.ethers.getSigner(
+        addressForSigner
+      ) as unknown as VoidSigner;
+    } else {
+      return (await deployConfig.hre.ethers.getSigners())[0];
+    }
+  }
 
   let rpcUrl = getRpcUrl(deployConfig);
   let derivationPath = deployConfig.derivationPath;
@@ -152,7 +171,10 @@ export async function retryAndWaitForNonceIncrease<T>(
         config.deployAddress
       )) === oldNonce
     ) {
-      throw new Error(`Nonce not increased yet for ${config.deployAddress}`);
+      throw new HardhatPluginError(
+        PLUGIN_NAME,
+        `Nonce not increased yet for ${config.deployAddress}`
+      );
     }
   });
   return result;
@@ -181,7 +203,7 @@ export async function retry<T>(
     }
   } while (attempts < maxAttempts);
 
-  throw new Error("Reached max retry attempts");
+  throw new HardhatPluginError(PLUGIN_NAME, "Reached max retry attempts");
 }
 
 async function delay(ms: number) {
@@ -244,7 +266,8 @@ function getRpcUrl(
     return networkConfig.url;
   }
 
-  throw new Error(
+  throw new HardhatPluginError(
+    PLUGIN_NAME,
     `Could not determine rpc url from network config ${JSON.stringify(
       networkConfig,
       null,
@@ -275,7 +298,10 @@ export async function deployNewProxyAndImplementation(
       return instance;
     } catch (e) {
       const { message } = getErrorMessageAndStack(e);
-      throw new Error(`It failed, retrying\nError: ${message}`);
+      throw new HardhatPluginError(
+        PLUGIN_NAME,
+        `It failed, retrying\nError: ${message}`
+      );
     }
   });
 }
@@ -284,17 +310,32 @@ export async function makeFactory(
   config: DeployConfig,
   contractName: string
 ): Promise<ContractFactory> {
-  if (config.targetNetwork === "hardhat") {
-    return await config.hre.ethers.getContractFactory(contractName);
-  } else if (config.targetNetwork === "localhost" && !config.forking) {
-    return (await config.hre.ethers.getContractFactory(contractName)).connect(
-      getHardhatTestWallet(config)
-    );
+  let factory: ContractFactory;
+
+  if (contractName == "upgradeManager") {
+    factory = await getUpgradeManagerFactory(config);
+  } else {
+    factory = await config.hre.ethers.getContractFactory(contractName);
   }
 
-  return (await config.hre.ethers.getContractFactory(contractName)).connect(
-    getSigner(config)
-  );
+  if (config.targetNetwork === "hardhat") {
+    return factory;
+  } else if (config.targetNetwork === "localhost" && !config.forking) {
+    return factory.connect(getHardhatTestWallet(config));
+  }
+
+  return factory.connect(await getSigner(config));
+}
+
+async function getUpgradeManagerFactory(
+  config: DeployConfig
+): Promise<UpgradeManager__factory> {
+  let { abi, bytecode } = readUpgradeManagerArtifactFromPlugin();
+  return (await config.hre.ethers.getContractFactory(
+    abi,
+    bytecode,
+    await getSigner(config)
+  )) as UpgradeManager__factory;
 }
 
 export async function getOrDeployUpgradeManager(
@@ -309,15 +350,64 @@ export async function getOrDeployUpgradeManager(
     return upgradeManager;
   } else {
     log(`Deploying new upgrade manager`);
-    let UpgradeManager = await makeFactory(config, "UpgradeManager");
+    let UpgradeManager = await getUpgradeManagerFactory(config);
 
-    // TODO: safe ownership
-    let upgradeManager = await config.hre.upgrades.deployProxy(UpgradeManager, [
-      config.deployAddress,
-    ]);
-    await upgradeManager.deployed();
+    if (!config.hre.upgrades) {
+      throw new HardhatPluginError(
+        PLUGIN_NAME,
+        "Could not find hre.upgrades, make sure you have @openzeppelin/hardhat-upgrades installed correctly"
+      );
+    }
 
-    log(`Deployed new upgrade manager to ${upgradeManager.address}`);
+    let signer = UpgradeManager.signer;
+
+    log("getting or deploying proxy admin");
+    const adminAddress = await config.hre.upgrades.deployProxyAdmin(signer);
+    log("admin address", adminAddress);
+
+    let proxyAdmin = await getContractAtWithSignature(
+      config,
+      adminAddress,
+      "owner() external view returns (address)"
+    );
+
+    let proxyAdminOwner = await proxyAdmin.owner();
+    log("proxy admin owner", proxyAdminOwner);
+    if (proxyAdminOwner !== config.deployAddress) {
+      throw new Error(
+        "Proxy admin is not owned by current deploy address, aborting"
+      );
+    }
+
+    log("deploying implementation");
+    let implementation = await UpgradeManager.deploy();
+    await implementation.deployed();
+    log("implementation address", implementation.address);
+
+    const TransparentUpgradeableProxyFactory =
+      await getTransparentUpgradeableProxyFactory(config.hre, signer);
+
+    let proxy = await TransparentUpgradeableProxyFactory.deploy(
+      implementation.address,
+      proxyAdmin.address,
+      encodeWithSignature(
+        config,
+        "initialize(address owner) external",
+        config.deployAddress
+      )
+    );
+    await proxy.deployed();
+
+    log("Deployed upgrade manager proxy at", proxy.address);
+    let upgradeManager = UpgradeManager.attach(proxy.address);
+
+    let upgradeManagerOwner = await upgradeManager.owner();
+    if (upgradeManagerOwner !== config.deployAddress) {
+      throw new Error(
+        "Upgrade manager not owned by current deploy address, aborting"
+      );
+    }
+
     writeMetadata(config, "upgradeManagerAddress", upgradeManager.address);
     return upgradeManager;
   }
@@ -329,7 +419,8 @@ export async function getUpgradeManager(
 ): Promise<UpgradeManager> {
   let upgradeManagerAddress = readMetadata(config, "upgradeManagerAddress");
   if (!upgradeManagerAddress) {
-    throw new Error(
+    throw new HardhatPluginError(
+      PLUGIN_NAME,
       `Could not find upgrade manager address in ${metadataPath(config)}`
     );
   }
@@ -337,7 +428,7 @@ export async function getUpgradeManager(
   let signer;
 
   if (!readOnly) {
-    signer = getSigner(config);
+    signer = await getSigner(config);
   }
   let { abi } = readUpgradeManagerArtifactFromPlugin();
 
@@ -348,10 +439,17 @@ export async function getUpgradeManager(
   )) as UpgradeManager;
 }
 
-function readUpgradeManagerArtifactFromPlugin() {
-  console.log(rootHre);
-  let abi: unknown[] = [];
-  return { abi };
+function readUpgradeManagerArtifactFromPlugin(): Artifact {
+  let path = join(__dirname, "../UpgradeManager.sol.json");
+  if (!existsSync(path)) {
+    throw new HardhatPluginError(
+      PLUGIN_NAME,
+      `Could not locate compiled UpgradeManager at ${path}, run yarn compile`
+    );
+  }
+  let artifact: Artifact = JSON.parse(readFileSync(path, "utf-8"));
+
+  return artifact;
 }
 
 export function readMetadata(
@@ -385,4 +483,30 @@ function metadataPath(config: DeployConfig): string {
     config.hre.config.paths.root,
     `upgrade-manager-deploy-data-${config.sourceNetwork}.json`
   );
+}
+
+export function asyncMain(main: { (...args: unknown[]): Promise<void> }): void {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}
+
+export function getContractAtWithSignature(
+  config: DeployConfig,
+  address: string,
+  signature: string
+): Promise<Contract> {
+  return config.hre.ethers.getContractAt([`function ${signature}`], address);
+}
+
+export function encodeWithSignature(
+  config: DeployConfig,
+  signature: string,
+  ...args: unknown[]
+): string {
+  let iface = new config.hre.ethers.utils.Interface([`function ${signature}`]);
+  return iface.encodeFunctionData(signature, args);
 }

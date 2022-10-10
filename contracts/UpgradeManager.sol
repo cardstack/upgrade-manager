@@ -72,6 +72,10 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     emit Setup();
   }
 
+  function CONTRACT_VERSION() public pure returns (uint256) {
+    return 1;
+  }
+
   function getUpgradeProposers() external view returns (address[] memory) {
     return upgradeProposers.values();
   }

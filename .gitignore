@@ -72,3 +72,5 @@ cache
 .openzeppelin/unknown-31337.json
 
 coverage.json
+
+UpgradeManager.sol.json

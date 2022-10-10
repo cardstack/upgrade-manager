@@ -2,7 +2,12 @@ import { expect } from "chai";
 
 // import { ExampleHardhatRuntimeEnvironmentField } from "../src/ExampleHardhatRuntimeEnvironmentField";
 
-import { captureOutput, runTask, useEnvironment } from "./helpers";
+import {
+  captureOutput,
+  getFixtureProjectUpgradeManager,
+  runTask,
+  useEnvironment,
+} from "./helpers";
 import "../src/type-extensions";
 
 describe("Basic project setup", function () {
@@ -51,10 +56,19 @@ describe("Basic project setup", function () {
       deployNetwork: "hardhat",
     });
     expect(stdout).to.include("Deploying to hardhat");
-    // TODO
-    console.log(stdout);
     expect(stdout).to.include(
       "Deploying from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+    );
+
+    expect(stdout).to.include("Deployed upgrade manager proxy at");
+    expect(stdout).to.include("Deployed new proxy for MockUpgradeableContract");
+    expect(stdout).to.include(
+      "Deployed new proxy for MockUpgradeableSecondInstance"
+    );
+
+    let upgradeManager = await getFixtureProjectUpgradeManager(this);
+    expect(await upgradeManager.owner()).to.eq(
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     );
   });
 
@@ -65,6 +79,8 @@ describe("Basic project setup", function () {
   it(
     "builds artifact and populates with npm publish readUpgradeManagerArtifactFromPlugin"
   );
+  it("audit Error classes - should be plugin error");
+  it("supports setting init args when initially deploying");
 });
 
 // describe("Unit tests examples", function () {
