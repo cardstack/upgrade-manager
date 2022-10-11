@@ -20,6 +20,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     address upgradeAddress;
   }
 
+  uint256 public constant CONTRACT_VERSION = 1;
   uint256 public constant MAXIMUM_CONTRACTS = 100;
 
   uint256 public nonce;
@@ -70,10 +71,6 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     }
 
     emit Setup();
-  }
-
-  function CONTRACT_VERSION() public pure returns (uint256) {
-    return 1;
   }
 
   function getUpgradeProposers() external view returns (address[] memory) {

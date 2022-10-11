@@ -1,26 +1,15 @@
 // import configureCardProtocol from "./configure-card-protocol";
 import deployContracts from "./deploy-contracts";
 
-import {
-  // contractInitSpec,
-  getDeployAddress,
-  // getProxyAddresses,
-  // getSigner,
-  // getUpgradeManager,
-  // reportProtocolStatus,
-  // retryAndWaitForNonceIncrease,
-  log,
-} from "./util";
+import { log } from "./util";
 
-import { Contract } from "@ethersproject/contracts";
-import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { ethers } from "ethers";
-import { DeployConfig, DeployConfigInput } from "./types";
+import { DeployConfig } from "./types";
 
 export async function deploy(config: DeployConfig) {
   log("Deploying from", config.deployAddress);
 
-  const { pendingChanges, unverifiedImpls } = await deployContracts(config);
+  //const { pendingChanges, unverifiedImpls } =
+  await deployContracts(config);
 
   /*
   await configureCardProtocol(network, pendingChanges);
@@ -114,7 +103,7 @@ export async function deploy(config: DeployConfig) {
     }
   }*/
 }
-
+/*
 async function proposalMatches({
   newImplementation,
   encodedCall,
@@ -146,3 +135,4 @@ async function proposalMatches({
   }
   return true;
 }
+*/

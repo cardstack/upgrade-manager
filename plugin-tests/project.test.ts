@@ -2,13 +2,12 @@ import { expect } from "chai";
 
 // import { ExampleHardhatRuntimeEnvironmentField } from "../src/ExampleHardhatRuntimeEnvironmentField";
 
+import "../src/type-extensions";
 import {
-  captureOutput,
   getFixtureProjectUpgradeManager,
   runTask,
   useEnvironment,
 } from "./helpers";
-import "../src/type-extensions";
 
 describe("Basic project setup", function () {
   // describe("Hardhat Runtime Environment extension", function () {

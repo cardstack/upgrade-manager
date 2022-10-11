@@ -1,26 +1,25 @@
-import rootHre from "hardhat";
 import { VoidSigner } from "@ethersproject/abstract-signer";
 import { BaseProvider, JsonRpcProvider } from "@ethersproject/providers";
+import { impersonateAccount } from "@nomicfoundation/hardhat-network-helpers";
+import { getTransparentUpgradeableProxyFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
 import { hashBytecodeWithoutMetadata } from "@openzeppelin/upgrades-core";
 import colors from "colors/safe";
 import { prompt } from "enquirer";
 import { Contract, ContractFactory, Signer } from "ethers";
 import { existsSync, readFileSync } from "fs";
 import { readJSONSync, writeJsonSync } from "fs-extra";
+import { HardhatPluginError } from "hardhat/plugins";
 import { Artifact, HardhatNetworkHDAccountsConfig } from "hardhat/types";
 import { join, resolve } from "path";
 import TrezorWalletProvider from "trezor-cli-wallet-provider";
+import { getErrorMessageAndStack } from "../shared";
+import { UpgradeManager, UpgradeManager__factory } from "../typechain-types";
 import {
   DeployConfig,
   DeployConfigMaybeWithoutDeployAddressYet,
   MetadataKey,
   RetryCallback,
 } from "./types";
-import { UpgradeManager, UpgradeManager__factory } from "../typechain-types";
-import { getErrorMessageAndStack } from "../shared";
-import { HardhatPluginError } from "hardhat/plugins";
-import { impersonateAccount } from "@nomicfoundation/hardhat-network-helpers";
-import { getTransparentUpgradeableProxyFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
 
 const PLUGIN_NAME = "upgrade-manager";
 

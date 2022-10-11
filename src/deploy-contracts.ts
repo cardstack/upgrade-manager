@@ -1,24 +1,20 @@
-import { Contract } from "@ethersproject/contracts";
 import { readJSONSync } from "fs-extra";
 import glob from "glob";
-import difference from "lodash/difference";
 import { shuffle } from "lodash";
-import { PendingChanges, DeployConfig } from "./types";
+import difference from "lodash/difference";
+import { DeployConfig, PendingChanges } from "./types";
 
+import { getProxyAdminFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
 import {
   deployedCodeMatches,
-  deployedImplementationMatches,
   deployNewProxyAndImplementation,
   getDeployAddress,
   getOrDeployUpgradeManager,
   getSigner,
   log,
   makeFactory,
-  readMetadata,
   retryAndWaitForNonceIncrease,
-  writeMetadata,
 } from "./util";
-import { getProxyAdminFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
 
 export default async function (
   config: DeployConfig
