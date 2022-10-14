@@ -2,6 +2,8 @@ import { expect } from "chai";
 
 // import { ExampleHardhatRuntimeEnvironmentField } from "../src/ExampleHardhatRuntimeEnvironmentField";
 
+import { AddressZero } from "@ethersproject/constants";
+
 import "../src/type-extensions";
 import {
   getFixtureProjectUpgradeManager,
@@ -10,6 +12,7 @@ import {
 } from "./helpers";
 
 describe("Basic project setup", function () {
+  this.timeout(60000);
   // describe("Hardhat Runtime Environment extension", function () {
   //   useEnvironment("upgrade-managed-project");
 
@@ -69,7 +72,66 @@ describe("Basic project setup", function () {
     expect(await upgradeManager.owner()).to.eq(
       "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     );
+
+    expect(
+      await upgradeManager.adoptedContractAddresses("unknown contract")
+    ).to.eq(AddressZero);
+
+    let mockUpgradeableContractAddress =
+      await upgradeManager.adoptedContractAddresses("MockUpgradeableContract");
+    expect(mockUpgradeableContractAddress).not.to.eq(AddressZero);
+
+    let mockUpgradeableSecondInstanceAddress =
+      await upgradeManager.adoptedContractAddresses(
+        "MockUpgradeableSecondInstance"
+      );
+
+    expect(mockUpgradeableSecondInstanceAddress).not.to.eq(AddressZero);
+
+    let mockUpgradeableContract = await this.hre.ethers.getContractAt(
+      "MockUpgradeableContract",
+      mockUpgradeableContractAddress
+    );
+    let mockUpgradeableSecondInstance = await this.hre.ethers.getContractAt(
+      "MockUpgradeableContract",
+      mockUpgradeableSecondInstanceAddress
+    );
+
+    expect(stdout).to.include("No config found for ContractWithNoConfig");
+    expect(stdout).to.include("Proposing call for MockUpgradeableContract");
+    expect(stdout).to.include(
+      "Proposing call for MockUpgradeableSecondInstance"
+    );
+    expect(stdout).not.to.include("Proposing call for ContractWithNoConfig");
+
+    expect(await mockUpgradeableContract.fooString()).to.eq("");
+    expect(await mockUpgradeableSecondInstance.fooString()).to.eq("");
+
+    expect(await mockUpgradeableContract.barAddress()).to.eq(AddressZero);
+    expect(await mockUpgradeableSecondInstance.barAddress()).to.eq(AddressZero);
+
+    ({ stdout } = await runTask(this.hre, "deploy:execute", {
+      deployNetwork: "hardhat",
+      newVersion: "1.0",
+    }));
+
+    expect(await mockUpgradeableContract.fooString()).to.eq("foo string value");
+    expect(await mockUpgradeableSecondInstance.fooString()).to.eq(
+      "foo string value second hardhat"
+    );
+
+    expect(await mockUpgradeableContract.barAddress()).to.eq(
+      mockUpgradeableSecondInstanceAddress
+    );
+    expect(await mockUpgradeableSecondInstance.barAddress()).to.eq(
+      mockUpgradeableContractAddress
+    );
+
+    expect(await upgradeManager.version()).to.eq("1.0");
   });
+
+  it("has autoconfirm as task param");
+  it("cals the task again and verifies no changes");
 
   it("Audit TODOs");
   it("Audit process.env");
@@ -80,6 +142,12 @@ describe("Basic project setup", function () {
   );
   it("audit Error classes - should be plugin error");
   it("supports setting init args when initially deploying");
+  it("allows adding proposer");
+  it("stores the deploy meta in a subdirectory");
+  it("handles bignum and bool");
+  it("handles verification");
+  it("audit dryRun");
+  it("process.env.IMMEDIATE_CONFIG_APPLY");
 });
 
 // describe("Unit tests examples", function () {

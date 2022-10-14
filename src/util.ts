@@ -6,22 +6,27 @@ import { hashBytecodeWithoutMetadata } from "@openzeppelin/upgrades-core";
 import colors from "colors/safe";
 import { prompt } from "enquirer";
 import { Contract, ContractFactory, Signer } from "ethers";
+import { Interface } from "ethers/lib/utils";
 import { existsSync, readFileSync } from "fs";
 import { readJSONSync, writeJsonSync } from "fs-extra";
 import { HardhatPluginError } from "hardhat/plugins";
 import { Artifact, HardhatNetworkHDAccountsConfig } from "hardhat/types";
+import { difference } from "lodash";
+import lodashIsEqual from "lodash/isEqual";
 import { join, resolve } from "path";
 import TrezorWalletProvider from "trezor-cli-wallet-provider";
 import { getErrorMessageAndStack } from "../shared";
 import { UpgradeManager, UpgradeManager__factory } from "../typechain-types";
+
 import {
   DeployConfig,
   DeployConfigMaybeWithoutDeployAddressYet,
   MetadataKey,
   RetryCallback,
+  SolidityValue,
 } from "./types";
 
-const PLUGIN_NAME = "upgrade-manager";
+export const PLUGIN_NAME = "upgrade-manager";
 
 export function log(...strs: string[]) {
   console.log(colors.blue(`[Deploy]`), ...strs);
@@ -44,7 +49,7 @@ export async function confirm(message: string): Promise<boolean> {
 export async function getDeployAddress(
   config: DeployConfigMaybeWithoutDeployAddressYet
 ): Promise<string> {
-  let { sourceNetwork, hre, forking } = config;
+  let { network: sourceNetwork, hre, forking } = config;
   let deployAddress: string;
 
   if (config.deployAddress) {
@@ -99,25 +104,30 @@ function getHardhatTestWallet({
 }
 
 export async function getSigner(
-  deployConfig: DeployConfigMaybeWithoutDeployAddressYet,
+  config: DeployConfigMaybeWithoutDeployAddressYet,
   address?: string
 ): Promise<Signer> {
-  let { hre, forking, deployAddress, targetNetwork, sourceNetwork } =
-    deployConfig;
+  let {
+    hre,
+    forking,
+    deployAddress,
+    targetNetwork,
+    network: sourceNetwork,
+  } = config;
 
   if (sourceNetwork == "hardhat") {
     let addressForSigner = address || deployAddress;
     if (addressForSigner) {
-      return deployConfig.hre.ethers.getSigner(
+      return config.hre.ethers.getSigner(
         addressForSigner
       ) as unknown as VoidSigner;
     } else {
-      return (await deployConfig.hre.ethers.getSigners())[0];
+      return (await config.hre.ethers.getSigners())[0];
     }
   }
 
-  let rpcUrl = getRpcUrl(deployConfig);
-  let derivationPath = deployConfig.derivationPath;
+  let rpcUrl = getRpcUrl(config);
+  let derivationPath = config.derivationPath;
 
   const { chainId } = hre.network.config;
 
@@ -131,14 +141,14 @@ export async function getSigner(
     ) as unknown as VoidSigner;
   }
 
-  if (process.env.DEPLOY_MNEMONIC) {
+  if (config.mnemonic) {
     let provider = hre.ethers.getDefaultProvider(rpcUrl) as JsonRpcProvider;
     return hre.ethers.Wallet.fromMnemonic(
-      process.env.DEPLOY_MNEMONIC,
-      deployConfig.derivationPath
+      config.mnemonic,
+      config.derivationPath
     ).connect(provider) as unknown as VoidSigner;
   } else {
-    log("No DEPLOY_MNEMONIC found, using trezor");
+    log("No mnemonic found in config, using trezor");
     const walletProvider = new TrezorWalletProvider(rpcUrl, {
       chainId: chainId,
       numberOfAccounts: 3,
@@ -185,7 +195,7 @@ export async function retry<T>(
 ): Promise<T> {
   let attempts = 0;
   do {
-    await delay(1000 + attempts * 1000);
+    await delay(attempts * 1000);
     try {
       attempts++;
       return await cb();
@@ -282,10 +292,9 @@ export async function deployNewProxyAndImplementation(
 ): Promise<Contract> {
   return await retry(async () => {
     try {
-      log(`Creating factory`);
       let factory = await makeFactory(config, contractName);
       log(
-        `Deploying proxy with constructorArgs`,
+        `Deploying proxy to ${contractName} with constructorArgs`,
         JSON.stringify(constructorArgs, null, 2)
       );
       let instance = await config.hre.upgrades.deployProxy(
@@ -379,23 +388,34 @@ export async function getOrDeployUpgradeManager(
     }
 
     log("deploying implementation");
-    let implementation = await UpgradeManager.deploy();
-    await implementation.deployed();
+    let implementation = await retryAndWaitForNonceIncrease(
+      config,
+      async () => {
+        let um = await UpgradeManager.deploy();
+        await um.deployed();
+        return um;
+      }
+    );
     log("implementation address", implementation.address);
 
     const TransparentUpgradeableProxyFactory =
       await getTransparentUpgradeableProxyFactory(config.hre, signer);
 
-    let proxy = await TransparentUpgradeableProxyFactory.deploy(
-      implementation.address,
-      proxyAdmin.address,
-      encodeWithSignature(
-        config,
-        "initialize(address owner) external",
-        config.deployAddress
-      )
-    );
-    await proxy.deployed();
+    log("deploying proxy");
+
+    let proxy = await retryAndWaitForNonceIncrease(config, async () => {
+      let px = await TransparentUpgradeableProxyFactory.deploy(
+        implementation.address,
+        proxyAdmin.address,
+        encodeWithSignature(
+          config,
+          "initialize(address owner) external",
+          config.deployAddress
+        )
+      );
+      await px.deployed();
+      return px;
+    });
 
     log("Deployed upgrade manager proxy at", proxy.address);
     let upgradeManager = UpgradeManager.attach(proxy.address);
@@ -406,6 +426,11 @@ export async function getOrDeployUpgradeManager(
         "Upgrade manager not owned by current deploy address, aborting"
       );
     }
+
+    log(
+      `Adding deploy address ${config.deployAddress} as initial upgrade proposer`
+    );
+    await upgradeManager.addUpgradeProposer(config.deployAddress);
 
     writeMetadata(config, "upgradeManagerAddress", upgradeManager.address);
     return upgradeManager;
@@ -480,7 +505,7 @@ export function writeMetadata(
 function metadataPath(config: DeployConfig): string {
   return resolve(
     config.hre.config.paths.root,
-    `upgrade-manager-deploy-data-${config.sourceNetwork}.json`
+    `upgrade-manager-deploy-data-${config.network}.json`
   );
 }
 
@@ -508,4 +533,40 @@ export function encodeWithSignature(
 ): string {
   let iface = new config.hre.ethers.utils.Interface([`function ${signature}`]);
   return iface.encodeFunctionData(signature, args);
+}
+
+export function isSolidityValuesEqual(val1: unknown, val2: unknown): boolean {
+  if (Array.isArray(val1) && Array.isArray(val2)) {
+    return (
+      difference(val1, val2).length === 0 && difference(val2, val1).length === 0
+    );
+  }
+  return lodashIsEqual(val1, val2);
+}
+
+export function formatEncodedCall(
+  contract: Contract | ContractFactory,
+  encodedCall: string
+): string {
+  return formatEncodedCallWithInterface(contract.interface, encodedCall);
+}
+
+export function formatEncodedCallWithInterface(
+  iface: Interface,
+  encodedCall: string
+): string {
+  let tx = iface.parseTransaction({ data: encodedCall });
+  let {
+    functionFragment: { name, inputs },
+    args,
+  } = tx;
+
+  function format(arg: unknown) {
+    return JSON.stringify(arg);
+  }
+  let formattedArgs = inputs.map(
+    (input, i) => `\n  ${input.type} ${input.name || ""}: ${format(args[i])}`
+  );
+
+  return `${name}(${formattedArgs.join()}\n)`;
 }

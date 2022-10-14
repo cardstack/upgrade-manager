@@ -27,7 +27,6 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   string public version;
 
   EnumerableSetUpgradeable.AddressSet internal upgradeProposers;
-  address public versionManager;
 
   EnumerableSetUpgradeable.AddressSet internal proxies;
   EnumerableSetUpgradeable.AddressSet internal proxiesWithPendingChanges;

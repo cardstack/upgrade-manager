@@ -11,12 +11,13 @@ export interface PendingChanges {
 
 export interface DeployConfigInput {
   hre: HardhatRuntimeEnvironment;
-  sourceNetwork: string;
+  network: string;
   targetNetwork: string;
   deployAddress?: string;
   forking: boolean;
   dryRun: boolean;
   derivationPath?: string;
+  mnemonic?: string;
 }
 
 export interface DeployConfig extends DeployConfigInput {
@@ -31,3 +32,28 @@ export type DeployConfigMaybeWithoutDeployAddressYet =
 export type RetryCallback<T> = () => Promise<T>;
 
 export type MetadataKey = "upgradeManagerAddress";
+
+type SolidityPrimitive = string | number | boolean;
+export type SolidityValue = SolidityPrimitive | Array<SolidityPrimitive>;
+
+export interface ConfigParam {
+  getter: string;
+  value: SolidityValue;
+}
+
+export type ContractConfig = {
+  [methodName: string]: Array<ConfigParam>;
+};
+
+interface ConfigFunctionArgs {
+  addresses: ContractAddressMap;
+  address: (contractId: string) => string;
+  deployConfig: DeployConfig;
+}
+export type ConfigFunction = (
+  args: ConfigFunctionArgs
+) => Promise<ContractConfig>;
+
+export interface ContractAddressMap {
+  [contractId: string]: string;
+}

@@ -2,40 +2,33 @@ import { readJSONSync } from "fs-extra";
 import glob from "glob";
 import { shuffle } from "lodash";
 import difference from "lodash/difference";
-import { DeployConfig, PendingChanges } from "./types";
+import { DeployConfig, PendingChanges, ContractAddressMap } from "./types";
 
 import { getProxyAdminFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
 import {
   deployedCodeMatches,
   deployNewProxyAndImplementation,
-  getDeployAddress,
   getOrDeployUpgradeManager,
   getSigner,
   log,
   makeFactory,
-  retryAndWaitForNonceIncrease,
 } from "./util";
 
-export default async function (
-  config: DeployConfig
-): Promise<{ unverifiedImpls: string[]; pendingChanges: PendingChanges }> {
-  const { sourceNetwork, hre } = config;
+export default async function (config: DeployConfig): Promise<{
+  unverifiedImpls: string[];
+  pendingChanges: PendingChanges;
+  addresses: ContractAddressMap;
+}> {
+  const { network: sourceNetwork, hre } = config;
 
-  const {
-    // upgrades: {
-    //   prepareUpgrade,
-    //   erc1967: { getAdminAddress },
-    // },
-    ethers,
-  } = hre;
-
-  const owner = await getDeployAddress(config);
-  log(`Deploying from address ${owner}`);
+  const { ethers } = hre;
 
   const pendingChanges: PendingChanges = {
     newImplementations: {},
     encodedCalls: {},
   };
+
+  const addresses: ContractAddressMap = {};
 
   let previousImpls = implAddresses(sourceNetwork);
 
@@ -55,6 +48,8 @@ export default async function (
     );
 
     if (proxyAddress !== ethers.constants.AddressZero && !singleton) {
+      addresses[contractId] = proxyAddress;
+
       log(`Checking ${contractId} (${contractName}@${proxyAddress}) ...`);
 
       if (await deployedCodeMatches(config, contractName, proxyAddress)) {
@@ -92,6 +87,7 @@ export default async function (
       // however it may not make sense for other non-upgradeable contracts in the future
 
       throw new Error("TODO");
+      // addresses[contractId] = proxyAddress;
 
       // proxyAddress = readMetadata(`${contractId}Address`, sourceNetwork);
       // if (
@@ -139,6 +135,8 @@ export default async function (
           `Deployed new proxy for ${contractId} (contract name: ${contractName}) to address ${instance.address}, adopting`
         );
 
+        addresses[contractId] = instance.address;
+
         let proxyAdminAddress = await hre.upgrades.erc1967.getAdminAddress(
           instance.address
         );
@@ -165,20 +163,12 @@ export default async function (
     }
   }
 
-  if (
-    (await upgradeManager.versionManager()) === ethers.constants.AddressZero
-  ) {
-    log("Upgrade Manager not setup, setting up now with proposer", owner);
-    await retryAndWaitForNonceIncrease(config, () =>
-      upgradeManager.setup([owner])
-    );
-  }
-
   let unverifiedImpls = difference(implAddresses(sourceNetwork), previousImpls);
 
   return {
     unverifiedImpls,
     pendingChanges,
+    addresses,
   };
 }
 
@@ -190,6 +180,9 @@ function implAddresses(network: string) {
       break;
     case "xdai":
       networkId = 100;
+      break;
+    case "goerli":
+      networkId = 5;
       break;
     case "hardhat":
     case "localhost":

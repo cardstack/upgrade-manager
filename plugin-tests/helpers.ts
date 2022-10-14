@@ -1,3 +1,4 @@
+import { EventEmitter } from "events";
 import { existsSync, readFileSync, unlinkSync } from "fs";
 import { readJSONSync } from "fs-extra";
 import { resetHardhatContext } from "hardhat/plugins-testing";
@@ -12,6 +13,13 @@ declare module "mocha" {
   interface Context {
     hre: HardhatRuntimeEnvironment;
     usedEnvironment?: string;
+  }
+}
+
+declare module "test-console" {
+  interface Inspector extends EventEmitter {
+    output: Output;
+    restore: Restore;
   }
 }
 
@@ -91,7 +99,16 @@ export async function captureOutput<T>(
 ): Promise<ConsoleCapturedResult<T>> {
   let result: T | undefined;
 
+  let originalWrite = process.stdout.write;
+
   const inspect = stdout.inspect();
+
+  if (process.env.DEBUG_TASK_OUTPUT) {
+    inspect.on("data", (d) => {
+      originalWrite.call(process.stdout, d);
+    });
+  }
+
   try {
     result = await cb();
   } catch (e) {
@@ -100,11 +117,13 @@ export async function captureOutput<T>(
     console.log("Error when capturing output:", e, "\n", message);
     console.log("\nOutput:\n\n", ...inspect.output);
     throw e;
+  } finally {
+    inspect.restore();
   }
+
   inspect.restore();
 
   let output = inspect.output;
-
   return {
     stdout: output.join(""),
     result,

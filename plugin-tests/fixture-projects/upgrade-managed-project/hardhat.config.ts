@@ -16,6 +16,10 @@ const config: HardhatUserConfig = {
         id: "MockUpgradeableSecondInstance",
         contract: "MockUpgradeableContract",
       },
+      {
+        id: "ContractWithNoConfig",
+        contract: "MockUpgradeableContract",
+      },
     ],
   },
 };
