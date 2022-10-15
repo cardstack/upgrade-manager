@@ -16,6 +16,7 @@ export interface DeployConfigInput {
   deployAddress?: string;
   forking: boolean;
   dryRun: boolean;
+  autoConfirm: boolean;
   derivationPath?: string;
   mnemonic?: string;
 }

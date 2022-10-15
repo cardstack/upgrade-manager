@@ -4,6 +4,7 @@ import {
   confirm,
   retryAndWaitForNonceIncrease,
   formatEncodedCall,
+  confirmOrAutoconfirm,
 } from "./util";
 
 import { DeployConfig } from "./types";
@@ -21,12 +22,12 @@ export async function execute(config: DeployConfig, newVersion: string) {
   let nonce = await upgradeManager.nonce();
   log("Upgrade Manager nonce for these changes:", nonce.toString());
 
-  const nextVer = process.env.CARDPAY_VERSION || "patch";
   let currentVersion = await upgradeManager.version();
 
   if (
-    !(await confirm(
-      `Confirm ${nextVer} upgrade of protocol with above changes (${currentVersion} -> ${newVersion})?`
+    !(await confirmOrAutoconfirm(
+      config.autoConfirm,
+      `Confirm upgrade of contracts with above changes (${currentVersion} -> ${newVersion})?`
     ))
   ) {
     log("Cancelling upgrade");

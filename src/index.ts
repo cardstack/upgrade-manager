@@ -39,10 +39,20 @@ task("deploy:status", "shows deploy status", async () => {
   console.log("Deploy status 2");
 });
 
+type TaskParams = {
+  deployNetwork: string;
+  fork: boolean;
+  dryRun: boolean;
+  impersonateAddress?: string;
+  derivationPath?: string;
+  autoConfirm: boolean;
+  newVersion: string;
+};
+
 function deployTask(
   taskName: string,
   taskDescription: string,
-  cb: (deployConfig: DeployConfig) => Promise<void>
+  cb: (deployConfig: DeployConfig, params: TaskParams) => Promise<void>
 ) {
   return task(taskName, taskDescription)
     .addPositionalParam(
@@ -76,52 +86,50 @@ function deployTask(
       undefined,
       types.string
     )
-    .setAction(
-      async (
-        {
-          deployNetwork,
-          fork,
-          dryRun,
-          impersonateAddress,
-          derivationPath,
-        }: {
-          deployNetwork: string;
-          fork: boolean;
-          dryRun: boolean;
-          impersonateAddress?: string;
-          derivationPath?: string;
-        },
-        hre
-      ) => {
-        // sourceNetworking network is the "source" - the current blockchain
-        // state to use - if not forking, it's also the destination, forking
-        // the destination would be localhost or hardhat depending on if
-        // there's a seperate hardhat node running on localhost
+    .addOptionalParam(
+      "autoConfirm",
+      "Don't ask for confirmation, useful in scripts / tests",
+      false,
+      types.boolean
+    )
+    .setAction(async (params, hre) => {
+      let {
+        deployNetwork,
+        fork,
+        dryRun,
+        impersonateAddress,
+        derivationPath,
+        autoConfirm,
+      }: TaskParams = params;
+      // network is the "source" - the current blockchain
+      // state to use - if not forking, it's also the destination, forking
+      // the destination would be localhost or hardhat depending on if
+      // there's a seperate hardhat node running on localhost
 
-        let targetNetwork = fork ? "localhost" : deployNetwork;
+      let targetNetwork = fork ? "localhost" : deployNetwork;
 
-        log("Deploying to", targetNetwork);
+      log("Deploying to", targetNetwork);
 
-        if (fork) {
-          log(`(Forking ${deployNetwork})`);
-        }
-
-        let deployConfig = {
-          hre,
-          network: deployNetwork,
-          targetNetwork,
-          forking: fork,
-          deployAddress: impersonateAddress,
-          dryRun,
-          derivationPath,
-          mnemonic: process.env.DEPLOY_MNEMONIC,
-        };
-
-        let deployAddress: string = await getDeployAddress(deployConfig);
-
-        await cb({ ...deployConfig, deployAddress });
+      if (fork) {
+        log(`(Forking ${deployNetwork})`);
       }
-    );
+
+      let deployConfig = {
+        hre,
+        network: deployNetwork,
+        targetNetwork,
+        forking: fork,
+        deployAddress: impersonateAddress,
+        dryRun,
+        derivationPath,
+        autoConfirm,
+        mnemonic: process.env.DEPLOY_MNEMONIC,
+      };
+
+      let deployAddress: string = await getDeployAddress(deployConfig);
+
+      await cb({ ...deployConfig, deployAddress }, params);
+    });
 }
 
 deployTask(
@@ -133,7 +141,7 @@ deployTask(
 deployTask(
   "deploy:execute",
   "Applies pending contract upgrades and config changes atomically",
-  (config: DeployConfig) => execute(config, "123 TODO")
+  (config: DeployConfig, { newVersion }) => execute(config, newVersion)
 ).addPositionalParam(
   "newVersion",
   "The new version number to set on the upgrade manager. Does not have to increase or change",

@@ -10,9 +10,18 @@ import {
   runTask,
   useEnvironment,
 } from "./helpers";
+import { ethers } from "ethers";
+import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
+
+declare module "hardhat/types/runtime" {
+  interface HardhatRuntimeEnvironment {
+    // We omit the ethers field because it is redundant.
+    ethers: typeof ethers & HardhatEthersHelpers;
+  }
+}
 
 describe("Basic project setup", function () {
-  this.timeout(60000);
+  this.timeout(120000);
   // describe("Hardhat Runtime Environment extension", function () {
   //   useEnvironment("upgrade-managed-project");
 
@@ -43,6 +52,11 @@ describe("Basic project setup", function () {
         singleton: false,
         id: "MockUpgradeableSecondInstance",
         contract: "MockUpgradeableContract",
+      },
+      {
+        contract: "MockUpgradeableContract",
+        id: "ContractWithNoConfig",
+        singleton: false,
       },
     ]);
   });
@@ -113,6 +127,7 @@ describe("Basic project setup", function () {
     ({ stdout } = await runTask(this.hre, "deploy:execute", {
       deployNetwork: "hardhat",
       newVersion: "1.0",
+      autoConfirm: true,
     }));
 
     expect(await mockUpgradeableContract.fooString()).to.eq("foo string value");
@@ -148,6 +163,7 @@ describe("Basic project setup", function () {
   it("handles verification");
   it("audit dryRun");
   it("process.env.IMMEDIATE_CONFIG_APPLY");
+  it("CARDPAY_VERSION");
 });
 
 // describe("Unit tests examples", function () {

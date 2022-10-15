@@ -33,10 +33,6 @@ export function log(...strs: string[]) {
 }
 
 export async function confirm(message: string): Promise<boolean> {
-  if (process.env.CARDSTACK_AUTOCONFIRM == "true") {
-    return true;
-  }
-
   let { question } = (await prompt({
     type: "confirm",
     name: "question",
@@ -44,6 +40,17 @@ export async function confirm(message: string): Promise<boolean> {
   })) as { question: boolean };
 
   return question;
+}
+
+export async function confirmOrAutoconfirm(
+  autoConfirm: boolean,
+  message: string
+) {
+  if (autoConfirm) {
+    return true;
+  } else {
+    return await confirm(message);
+  }
 }
 
 export async function getDeployAddress(
@@ -75,7 +82,8 @@ export async function getDeployAddress(
     deployAddress = await (await getSigner(config)).getAddress();
     if (
       !forking &&
-      !(await confirm(
+      !(await confirmOrAutoconfirm(
+        config.autoConfirm,
         `Send transactions from address ${deployAddress}? (No further confirmations for mnemnonic-derived addresses)`
       ))
     ) {
