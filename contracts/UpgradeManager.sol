@@ -12,6 +12,7 @@ import "./interfaces/IProxyAdmin.sol";
 
 contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
+  using EnumerableSetUpgradeable for EnumerableSetUpgradeable.Bytes32Set;
 
   struct AdoptedContract {
     string id;
@@ -39,9 +40,8 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   mapping(string => address) public adoptedContractAddresses; // contract id <=> proxy address
 
   AbstractContract[] public proposedAbstractContracts;
-
-  mapping(string => address) public abstractContractAddresses; // contract id <=> proxy address
-  mapping(string => bool) public proposedAbstractContractIds; // contract id <=> is recognized
+  EnumerableSetUpgradeable.Bytes32Set internal abstractContractIdHashes;
+  mapping(bytes32 => AbstractContract) public abstractContracts; // keccak256(contract id) <=> AbstractContract struct
 
   event Setup();
   event ProposerAdded(address proposer);
@@ -89,6 +89,29 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     return proxies.values();
   }
 
+  function getAbstractContractIdHashes()
+    external
+    view
+    returns (bytes32[] memory)
+  {
+    return abstractContractIdHashes.values();
+  }
+
+  function getAbstractContractAddresses()
+    external
+    view
+    returns (address[] memory)
+  {
+    uint256 len = abstractContractIdHashes.length();
+    address[] memory result = new address[](len);
+
+    for (uint256 i = 0; i < len; i++) {
+      result[i] = abstractContracts[abstractContractIdHashes.at(i)]
+        .contractAddress;
+    }
+    return result;
+  }
+
   function getProxiesWithPendingChanges()
     external
     view
@@ -103,6 +126,16 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     returns (string memory)
   {
     return adoptedContractsByProxyAddress[_proxyAddress].id;
+  }
+
+  function getAbstractContractAddress(string calldata _contractId)
+    external
+    view
+    returns (address)
+  {
+    return
+      abstractContracts[keccak256(abi.encodePacked(_contractId))]
+        .contractAddress;
   }
 
   function getPendingUpgradeAddress(address _proxyAddress)
@@ -215,8 +248,14 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     // Abstract contracts
     for (uint256 i = 0; i < proposedAbstractContracts.length; i++) {
       AbstractContract storage abstractContract = proposedAbstractContracts[i];
-      abstractContractAddresses[abstractContract.id] = abstractContract
-        .contractAddress;
+      bytes32 idHash = keccak256(abi.encodePacked(abstractContract.id));
+      if (abstractContract.contractAddress == address(0)) {
+        delete abstractContracts[idHash];
+        abstractContractIdHashes.remove(idHash);
+      } else {
+        abstractContracts[idHash] = abstractContract;
+        abstractContractIdHashes.add(idHash);
+      }
     }
     delete proposedAbstractContracts;
 

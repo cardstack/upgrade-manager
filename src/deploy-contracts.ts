@@ -1,18 +1,22 @@
+import { AddressZero } from "@ethersproject/constants";
 import { readJSONSync } from "fs-extra";
 import glob from "glob";
 import { shuffle } from "lodash";
 import difference from "lodash/difference";
-import { DeployConfig, PendingChanges, ContractAddressMap } from "./types";
+import { ContractAddressMap, DeployConfig, PendingChanges } from "./types";
 
 import { getProxyAdminFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
 import {
   deployedCodeMatches,
+  deployedImplementationMatches,
   deployNewProxyAndImplementation,
   getOrDeployUpgradeManager,
   getSigner,
   log,
   makeFactory,
+  retryAndWaitForNonceIncrease,
 } from "./util";
+import { Contract } from "ethers";
 
 export default async function (config: DeployConfig): Promise<{
   unverifiedImpls: string[];
@@ -39,7 +43,7 @@ export default async function (config: DeployConfig): Promise<{
   // deploying to certain testnets where it's suspected nodes have stuck transactions
   // with conflicting nonces not yet mined but in the mempool
   for (let contractConfig of shuffle(contracts)) {
-    let { id: contractId, contract: contractName, singleton } = contractConfig;
+    let { id: contractId, contract: contractName, abstract } = contractConfig;
 
     log("Contract:", contractId);
 
@@ -47,7 +51,7 @@ export default async function (config: DeployConfig): Promise<{
       contractId
     );
 
-    if (proxyAddress !== ethers.constants.AddressZero && !singleton) {
+    if (proxyAddress !== AddressZero && !abstract) {
       addresses[contractId] = proxyAddress;
 
       log(`Checking ${contractId} (${contractName}@${proxyAddress}) ...`);
@@ -76,51 +80,48 @@ export default async function (config: DeployConfig): Promise<{
             newImplementationAddress;
         }
       }
-    } else if (singleton) {
-      // if the contract is not upgradeable, deploy a new version each time.
-      // Deploying a new version each time probably only makes sense for contracts
-      // that are used as delegate implementations, and it is done so that when
-      // changes are made to that contract, a new one is deployed and other contracts
-      // are configured to point to it later.
+    } else if (abstract) {
+      // Abstract contracts are implementation only, and therefore do not need a proxy
 
-      // This behaviour makes sense for RewardSafeDelegateImplementation,
-      // however it may not make sense for other non-upgradeable contracts in the future
-
-      throw new Error("TODO");
-      // addresses[contractId] = proxyAddress;
+      let currentAddress = await upgradeManager.getAbstractContractAddress(
+        contractId
+      );
 
       // proxyAddress = readMetadata(`${contractId}Address`, sourceNetwork);
-      // if (
-      //   proxyAddress &&
-      //   (await deployedImplementationMatches(contractName, proxyAddress))
-      // ) {
-      //   log(
-      //     "Deployed implementation of",
-      //     contractName,
-      //     "is already up to date"
-      //   );
-      // } else {
-      //   log(
-      //     `Deploying new non upgradeable contract ${contractId} (${contractName})...`
-      //   );
+      if (
+        currentAddress != AddressZero &&
+        (await deployedImplementationMatches(
+          config,
+          contractName,
+          currentAddress
+        ))
+      ) {
+        log(
+          "Deployed implementation of",
+          contractName,
+          "is already up to date"
+        );
+      } else {
+        log(
+          `Deploying new abstract contract ${contractId} (${contractName})...`
+        );
 
-      //   if (!config.dryRun) {
-      //     let factory = await makeFactory(contractName);
+        if (!config.dryRun) {
+          let factory = await makeFactory(config, contractName);
 
-      //     let instance: Contract = await retryAndWaitForNonceIncrease(
-      //       config,
-      //       () => factory.deploy(...init)
-      //     );
-      //     log(
-      //       `Deployed new non upgradeable contract ${contractId} (${contractName}) to ${instance.address}`
-      //     );
-      //     writeMetadata(
-      //       `${contractId}Address`,
-      //       instance.address,
-      //       sourceNetwork
-      //     );
-      //   }
-      // }
+          let contract: Contract = await retryAndWaitForNonceIncrease(
+            config,
+            async () => {
+              let c = await factory.deploy();
+              return c.deployed();
+            }
+          );
+          log(
+            `Deployed new abstract contract ${contractId} (${contractName}) to ${contract.address}`
+          );
+          addresses[contractId] = contract.address;
+        }
+      }
     } else {
       log(`Deploying new contract ${contractId} (${contractName})...`);
 
@@ -149,13 +150,17 @@ export default async function (config: DeployConfig): Promise<{
           log(
             `Proxy admin ${proxyAdmin.address} is not owned by upgrade manager, it is owned by ${proxyAdminOwner}, transferring`
           );
-          await proxyAdmin.transferOwnership(upgradeManager.address);
+          await retryAndWaitForNonceIncrease(config, () =>
+            proxyAdmin.transferOwnership(upgradeManager.address)
+          );
         }
 
-        await upgradeManager.adoptContract(
-          contractId,
-          instance.address,
-          proxyAdminAddress
+        await retryAndWaitForNonceIncrease(config, () =>
+          upgradeManager.adoptContract(
+            contractId,
+            instance.address,
+            proxyAdminAddress
+          )
         );
 
         log("New contract", contractId, "adopted successfully");

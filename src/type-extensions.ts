@@ -17,14 +17,14 @@ declare module "hardhat/types/config" {
     | string
     | {
         id: string;
-        contract: string;
-        singleton?: boolean;
+        contract?: string;
+        abstract?: boolean;
       };
 
   type UpgradeManagerContractConfig = {
     id: string;
     contract: string;
-    singleton: boolean;
+    abstract: boolean;
   };
 
   interface UpgradeManagerUserConfig {

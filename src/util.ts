@@ -274,7 +274,7 @@ export async function deployedImplementationMatches(
 
 export function getSourceProvider(config: DeployConfig): BaseProvider {
   if (config.network == "hardhat") {
-    return config.hre.ethers.getDefaultProvider();
+    return config.hre.ethers.provider;
   }
   return config.hre.ethers.getDefaultProvider(getRpcUrl(config));
 }
@@ -356,7 +356,7 @@ async function getUpgradeManagerFactory(
 
 export async function getOrDeployUpgradeManager(
   config: DeployConfig
-): Promise<Contract> {
+): Promise<UpgradeManager> {
   if (readMetadata(config, "upgradeManagerAddress")) {
     let upgradeManager = await getUpgradeManager(config);
     let nonce = await upgradeManager.nonce(); // Sanity check that it's a real contract

@@ -46,17 +46,22 @@ describe("Basic project setup", function () {
       {
         id: "MockUpgradeableContract",
         contract: "MockUpgradeableContract",
-        singleton: false,
+        abstract: false,
       },
       {
-        singleton: false,
+        abstract: false,
         id: "MockUpgradeableSecondInstance",
         contract: "MockUpgradeableContract",
       },
       {
         contract: "MockUpgradeableContract",
         id: "ContractWithNoConfig",
-        singleton: false,
+        abstract: false,
+      },
+      {
+        id: "AbstractContract",
+        contract: "AbstractContract",
+        abstract: true,
       },
     ]);
   });
@@ -80,6 +85,9 @@ describe("Basic project setup", function () {
     expect(stdout).to.include("Deployed new proxy for MockUpgradeableContract");
     expect(stdout).to.include(
       "Deployed new proxy for MockUpgradeableSecondInstance"
+    );
+    expect(stdout).to.include(
+      "Deployed new abstract contract AbstractContract (AbstractContract) to 0x"
     );
 
     let upgradeManager = await getFixtureProjectUpgradeManager(this);
@@ -147,6 +155,8 @@ describe("Basic project setup", function () {
   });
 
   it("calls the task again and verifies no changes");
+  it("tests upgrade");
+  it("tests call");
 
   it("Audit TODOs");
   it("Audit process.env");

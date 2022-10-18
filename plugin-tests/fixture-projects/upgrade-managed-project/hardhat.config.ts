@@ -20,6 +20,10 @@ const config: HardhatUserConfig = {
         id: "ContractWithNoConfig",
         contract: "MockUpgradeableContract",
       },
+      {
+        id: "AbstractContract",
+        abstract: true,
+      },
     ],
   },
 };

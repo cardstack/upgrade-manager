@@ -25,10 +25,10 @@ extendConfig(
           return {
             id: config,
             contract: config,
-            singleton: false,
+            abstract: false,
           };
         } else {
-          return { singleton: false, ...config };
+          return { abstract: false, contract: config.id, ...config };
         }
       }
     );

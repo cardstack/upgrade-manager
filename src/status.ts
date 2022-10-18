@@ -35,6 +35,7 @@ export async function getProtocolStatus(
   let upgradeManager = await getUpgradeManager(config, true);
 
   let proxyAddresses = await upgradeManager.getProxies();
+  let abstractContractAddresses;
 
   let { contracts } = config.hre.config.upgradeManager;
 

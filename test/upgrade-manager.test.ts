@@ -1,19 +1,19 @@
-import { Contract } from "ethers";
-import { upgrades } from "hardhat";
-import { expect } from "chai";
-import { existsSync, unlinkSync } from "fs";
-import { join } from "path";
-import { ethers } from "hardhat";
 import { AddressZero } from "@ethersproject/constants";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { expect } from "chai";
+import { Contract } from "ethers";
+import { solidityKeccak256 } from "ethers/lib/utils";
+import { existsSync, unlinkSync } from "fs";
+import { ethers, upgrades } from "hardhat";
+import { join } from "path";
 import {
-  UpgradeableContractV1__factory,
-  UpgradeableContractV2__factory,
+  AbstractContractV1,
   AbstractContractV1__factory,
   AbstractContractV2__factory,
+  UpgradeableContractV1__factory,
+  UpgradeableContractV2__factory,
   UpgradeManager,
   UpgradeManager__factory,
-  AbstractContractV1,
 } from "../typechain-types";
 
 const manifestPath = join(__dirname, "../.openzeppelin/unknown-31337.json");
@@ -1107,12 +1107,13 @@ describe("UpgradeManager", () => {
 
     it("allows a proposer to propose an abstract contract address", async () => {
       expect(
-        await upgradeManager.abstractContractAddresses("AbstractContract")
+        await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(AddressZero);
 
       await expect(
         upgradeManager.proposedAbstractContracts(0)
       ).to.be.rejectedWith("call revert exception");
+      expect(await upgradeManager.getAbstractContractIdHashes()).to.be.empty;
 
       await expect(
         upgradeManagerAsProposer.proposeAbstract(
@@ -1124,6 +1125,9 @@ describe("UpgradeManager", () => {
         .withArgs("AbstractContract", abstract1.address);
 
       let prop1 = await upgradeManager.proposedAbstractContracts(0);
+      expect(await upgradeManager.getAbstractContractAddresses()).to.be.empty;
+      expect(await upgradeManager.getAbstractContractIdHashes()).to.be.empty;
+
       expect(prop1.id).to.eq("AbstractContract");
       expect(prop1.contractAddress).to.eq(abstract1.address);
 
@@ -1141,23 +1145,36 @@ describe("UpgradeManager", () => {
       expect(prop2.contractAddress).to.eq(abstract1.address);
 
       expect(
-        await upgradeManager.abstractContractAddresses("AbstractContract")
+        await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(AddressZero);
 
       expect(
-        await upgradeManager.abstractContractAddresses(
+        await upgradeManager.getAbstractContractAddress(
           "AbstractContractSameImplementationDifferentName"
         )
       ).to.eq(AddressZero);
 
       await upgradeManager.upgrade("1", await upgradeManager.nonce());
+      expect(
+        await upgradeManager.getAbstractContractAddresses()
+      ).to.have.members([abstract1.address, abstract1.address]);
 
       expect(
-        await upgradeManager.abstractContractAddresses("AbstractContract")
+        await upgradeManager.getAbstractContractIdHashes()
+      ).to.have.members([
+        solidityKeccak256(["string"], ["AbstractContract"]),
+        solidityKeccak256(
+          ["string"],
+          ["AbstractContractSameImplementationDifferentName"]
+        ),
+      ]);
+
+      expect(
+        await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(abstract1.address);
 
       expect(
-        await upgradeManager.abstractContractAddresses(
+        await upgradeManager.getAbstractContractAddress(
           "AbstractContractSameImplementationDifferentName"
         )
       ).to.eq(abstract1.address);
@@ -1176,12 +1193,24 @@ describe("UpgradeManager", () => {
         abstract2.address
       );
       expect(
-        await upgradeManager.abstractContractAddresses("AbstractContract")
+        await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(abstract1.address);
       await upgradeManager.upgrade("2", await upgradeManager.nonce());
       expect(
-        await upgradeManager.abstractContractAddresses("AbstractContract")
+        await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(abstract2.address);
+      expect(
+        await upgradeManager.getAbstractContractIdHashes()
+      ).to.have.members([
+        solidityKeccak256(["string"], ["AbstractContract"]),
+        solidityKeccak256(
+          ["string"],
+          ["AbstractContractSameImplementationDifferentName"]
+        ),
+      ]);
+      expect(
+        await upgradeManager.getAbstractContractAddresses()
+      ).to.have.members([abstract1.address, abstract2.address]);
 
       await upgradeManagerAsProposer.proposeAbstract(
         "AbstractContract",
@@ -1189,8 +1218,26 @@ describe("UpgradeManager", () => {
       );
       await upgradeManager.upgrade("3", await upgradeManager.nonce());
       expect(
-        await upgradeManager.abstractContractAddresses("AbstractContract")
+        await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(AddressZero);
+      expect(
+        await upgradeManager.getAbstractContractAddresses()
+      ).to.have.members([abstract1.address]);
+
+      expect(
+        await upgradeManager.getAbstractContractIdHashes()
+      ).to.have.members([
+        solidityKeccak256(
+          ["string"],
+          ["AbstractContractSameImplementationDifferentName"]
+        ),
+      ]);
+
+      let abstractContractStruct = await upgradeManager.abstractContracts(
+        solidityKeccak256(["string"], ["AbstractContract"])
+      );
+      expect(abstractContractStruct.id).to.eq("");
+      expect(abstractContractStruct.contractAddress).to.eq(AddressZero);
     });
 
     it("only allows proposers to call", async () => {
@@ -1211,7 +1258,7 @@ describe("UpgradeManager", () => {
       );
       await upgradeManager.upgrade("1", await upgradeManager.nonce());
       expect(
-        await upgradeManager.abstractContractAddresses("AbstractContract")
+        await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(abstract2.address);
     });
 
@@ -1228,7 +1275,7 @@ describe("UpgradeManager", () => {
       ).to.emit(upgradeManagerAsProposer, "AbstractProposalsWithdrawn");
       await upgradeManager.upgrade("1", await upgradeManager.nonce());
       expect(
-        await upgradeManager.abstractContractAddresses("AbstractContract")
+        await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(AddressZero);
     });
     it("requires a contract address", async () => {
