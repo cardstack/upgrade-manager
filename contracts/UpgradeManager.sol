@@ -20,6 +20,11 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     address upgradeAddress;
   }
 
+  struct AbstractContract {
+    string id;
+    address addr;
+  }
+
   uint256 public constant CONTRACT_VERSION = 1;
   uint256 public constant MAXIMUM_CONTRACTS = 100;
 
@@ -33,24 +38,23 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   mapping(address => AdoptedContract) public adoptedContractsByProxyAddress; // proxy address <=> AdoptedContract struct
   mapping(string => address) public adoptedContractAddresses; // contract id <=> proxy address
 
+  AbstractContract[] public proposedAbstractContracts;
+
+  mapping(string => address) public abstractContractAddresses; // contract id <=> proxy address
+  mapping(string => bool) public proposedAbstractContractIds; // contract id <=> is recognized
+
   event Setup();
-  event ProposerAdded(address indexed proposer);
-  event ProposerRemoved(address indexed proposer);
-  event ContractAdopted(
-    string indexed contractId,
-    address indexed proxyAddress
-  );
-  event ContractDisowned(
-    string indexed contractId,
-    address indexed proxyAddress
-  );
+  event ProposerAdded(address proposer);
+  event ProposerRemoved(address proposer);
+  event ContractAdopted(string contractId, address proxyAddress);
+  event ContractDisowned(string contractId, address proxyAddress);
   event ChangesProposed(
-    string indexed contractId,
-    address indexed implementationAddress,
+    string contractId,
+    address implementationAddress,
     bytes encodedCall
   );
-  event ChangesWithdrawn(string indexed contractId);
-  event Upgraded(string indexed version);
+  event ChangesWithdrawn(string contractId);
+  event Upgraded(string version);
 
   modifier onlyProposers() {
     if (upgradeProposers.contains(msg.sender)) {
@@ -121,6 +125,25 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     emit ProposerRemoved(proposerAddress);
   }
 
+  function proposeAbstract(
+    string calldata _contractId,
+    address _contractAddress
+  ) external onlyProposers {
+    // address(0) is allowed so as to remove a registered abstract contract
+    require(
+      _contractAddress == address(0) ||
+        AddressUpgradeable.isContract(_contractAddress),
+      "Proposed address is not a contract"
+    );
+    proposedAbstractContracts.push(
+      AbstractContract({id: _contractId, addr: _contractAddress})
+    );
+  }
+
+  function withdrawAllAbstractProposals() external onlyProposers {
+    delete proposedAbstractContracts;
+  }
+
   function adoptContract(
     string calldata _contractId,
     address _proxyAddress,
@@ -170,6 +193,8 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   {
     require(bytes(_newVersion).length > 0, "New version must be set");
     require(_nonce == nonce, "Invalid nonce");
+
+    // Upgradeable contracts
     uint256 count = proxiesWithPendingChanges.length();
     for (uint256 i = 0; i < count; i++) {
       // Note: always access first item because we are removing from the set after
@@ -179,6 +204,14 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
       _applyChanges(proxyAddress);
       _resetChanges(proxyAddress);
     }
+
+    // Abstract contracts
+    for (uint256 i = 0; i < proposedAbstractContracts.length; i++) {
+      AbstractContract storage abstractContract = proposedAbstractContracts[i];
+      abstractContractAddresses[abstractContract.id] = abstractContract.addr;
+    }
+    delete proposedAbstractContracts;
+
     version = _newVersion;
     nonce++;
     emit Upgraded(version);

@@ -9,8 +9,11 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import {
   UpgradeableContractV1__factory,
   UpgradeableContractV2__factory,
+  AbstractContractV1__factory,
+  AbstractContractV2__factory,
   UpgradeManager,
   UpgradeManager__factory,
+  AbstractContractV1,
 } from "../typechain-types";
 
 const manifestPath = join(__dirname, "../.openzeppelin/unknown-31337.json");
@@ -30,9 +33,12 @@ describe("UpgradeManager", () => {
     randomEOA: string,
     otherOwner: string,
     upgradeManager: UpgradeManager,
+    upgradeManagerAsProposer: UpgradeManager,
     UpgradeManager: UpgradeManager__factory,
     UpgradeableContractV1: UpgradeableContractV1__factory,
-    UpgradeableContractV2: UpgradeableContractV2__factory;
+    UpgradeableContractV2: UpgradeableContractV2__factory,
+    AbstractContractV1: AbstractContractV1__factory,
+    AbstractContractV2: AbstractContractV2__factory;
 
   async function setupFixture() {
     accounts = await ethers.getSigners();
@@ -50,9 +56,22 @@ describe("UpgradeManager", () => {
       "UpgradeableContractV2"
     );
 
+    AbstractContractV1 = await ethers.getContractFactory(
+      "UpgradeableContractV1"
+    );
+
+    AbstractContractV2 = await ethers.getContractFactory(
+      "UpgradeableContractV2"
+    );
+
     let upgradeManager = await UpgradeManager.deploy();
     await upgradeManager.initialize(owner);
     await upgradeManager.setup([proposer]);
+
+    let upgradeManagerAsProposer = await contractWithSigner(
+      upgradeManager,
+      proposer
+    );
 
     return {
       owner,
@@ -62,6 +81,7 @@ describe("UpgradeManager", () => {
       otherOwner,
       UpgradeManager,
       upgradeManager,
+      upgradeManagerAsProposer,
       UpgradeableContractV1,
       UpgradeableContractV2,
     };
@@ -76,6 +96,7 @@ describe("UpgradeManager", () => {
       randomEOA,
       otherOwner,
       upgradeManager,
+      upgradeManagerAsProposer,
       UpgradeManager,
       UpgradeableContractV1,
       UpgradeableContractV2,
@@ -364,11 +385,6 @@ describe("UpgradeManager", () => {
       UpgradeableContractV2
     )) as string;
 
-    let upgradeManagerAsProposer = await contractWithSigner(
-      upgradeManager,
-      proposer
-    );
-
     await upgradeManagerAsProposer.proposeUpgrade(
       "UpgradeableContract",
       newImplementationAddress
@@ -410,11 +426,6 @@ describe("UpgradeManager", () => {
 
     expect(newImplementationAddress1).to.eq(newImplementationAddress2);
 
-    let upgradeManagerAsProposer = await contractWithSigner(
-      upgradeManager,
-      proposer
-    );
-
     await upgradeManagerAsProposer.proposeUpgrade(
       "ContractA",
       newImplementationAddress1
@@ -452,11 +463,6 @@ describe("UpgradeManager", () => {
       UpgradeableContractV2
     )) as string;
 
-    let upgradeManagerAsProposer = await contractWithSigner(
-      upgradeManager,
-      proposer
-    );
-
     await upgradeManagerAsProposer.proposeUpgrade(
       "UpgradeableContract",
       newImplementationAddress
@@ -480,11 +486,6 @@ describe("UpgradeManager", () => {
       instance.address,
       UpgradeableContractV2
     )) as string;
-
-    let upgradeManagerAsProposer = await contractWithSigner(
-      upgradeManager,
-      proposer
-    );
 
     let encodedCall = encodeWithSignature("foo(string)", "bar");
     await expect(
@@ -540,11 +541,6 @@ describe("UpgradeManager", () => {
       id: "C3",
       contract: "UpgradeableContractV2",
     });
-
-    let upgradeManagerAsProposer = await contractWithSigner(
-      upgradeManager,
-      proposer
-    );
 
     await upgradeManagerAsProposer.proposeUpgrade(
       "C1",
@@ -646,11 +642,6 @@ describe("UpgradeManager", () => {
       UpgradeableContractV2
     )) as string;
 
-    let upgradeManagerAsProposer = await contractWithSigner(
-      upgradeManager,
-      proposer
-    );
-
     let encodedCallData = encodeWithSignature("setup(string)", "bar");
     await upgradeManagerAsProposer.proposeUpgradeAndCall(
       "UpgradeableContract",
@@ -677,11 +668,6 @@ describe("UpgradeManager", () => {
       id: "C3",
       contract: "UpgradeableContractV2",
     });
-
-    let upgradeManagerAsProposer = await contractWithSigner(
-      upgradeManager,
-      proposer
-    );
 
     expect(await upgradeManager.nonce()).to.eq(0);
     await upgradeManagerAsProposer.proposeUpgrade(
@@ -862,11 +848,6 @@ describe("UpgradeManager", () => {
     });
 
     let encodedCall = encodeWithSignature("foo(string)", "bar");
-
-    let upgradeManagerAsProposer = await contractWithSigner(
-      upgradeManager,
-      proposer
-    );
 
     await upgradeManagerAsProposer.proposeUpgradeAndCall(
       "OwnedContract",
@@ -1117,8 +1098,146 @@ describe("UpgradeManager", () => {
     ).to.be.rejectedWith("Too many contracts adopted");
   });
 
+  describe.only("Proposing abstract contract", async () => {
+    let abstract1: AbstractContractV1;
+    beforeEach(async () => {
+      abstract1 = await AbstractContractV1.deploy();
+      expect(await abstract1.version()).to.eq("1");
+    });
+
+    it("allows a proposer to propose an abstract contract address", async () => {
+      expect(
+        await upgradeManager.abstractContractAddresses("AbstractContract")
+      ).to.eq(AddressZero);
+
+      await expect(
+        upgradeManager.proposedAbstractContracts(0)
+      ).to.be.rejectedWith("call revert exception");
+
+      await upgradeManagerAsProposer.proposeAbstract(
+        "AbstractContract",
+        abstract1.address
+      );
+
+      let prop1 = await upgradeManager.proposedAbstractContracts(0);
+      expect(prop1.id).to.eq("AbstractContract");
+      expect(prop1.addr).to.eq(abstract1.address);
+
+      await expect(
+        upgradeManager.proposedAbstractContracts(1)
+      ).to.be.rejectedWith("call revert exception");
+
+      await upgradeManagerAsProposer.proposeAbstract(
+        "AbstractContractSameImplementationDifferentName",
+        abstract1.address
+      );
+
+      let prop2 = await upgradeManager.proposedAbstractContracts(1);
+      expect(prop2.id).to.eq("AbstractContractSameImplementationDifferentName");
+      expect(prop2.addr).to.eq(abstract1.address);
+
+      expect(
+        await upgradeManager.abstractContractAddresses("AbstractContract")
+      ).to.eq(AddressZero);
+
+      expect(
+        await upgradeManager.abstractContractAddresses(
+          "AbstractContractSameImplementationDifferentName"
+        )
+      ).to.eq(AddressZero);
+
+      await upgradeManager.upgrade("1", await upgradeManager.nonce());
+
+      expect(
+        await upgradeManager.abstractContractAddresses("AbstractContract")
+      ).to.eq(abstract1.address);
+
+      expect(
+        await upgradeManager.abstractContractAddresses(
+          "AbstractContractSameImplementationDifferentName"
+        )
+      ).to.eq(abstract1.address);
+
+      await expect(
+        upgradeManager.proposedAbstractContracts(0)
+      ).to.be.rejectedWith("call revert exception");
+
+      await expect(
+        upgradeManager.proposedAbstractContracts(1)
+      ).to.be.rejectedWith("call revert exception");
+
+      let abstract2 = await AbstractContractV2.deploy();
+      await upgradeManagerAsProposer.proposeAbstract(
+        "AbstractContract",
+        abstract2.address
+      );
+      expect(
+        await upgradeManager.abstractContractAddresses("AbstractContract")
+      ).to.eq(abstract1.address);
+      await upgradeManager.upgrade("2", await upgradeManager.nonce());
+      expect(
+        await upgradeManager.abstractContractAddresses("AbstractContract")
+      ).to.eq(abstract2.address);
+
+      await upgradeManagerAsProposer.proposeAbstract(
+        "AbstractContract",
+        AddressZero
+      );
+      await upgradeManager.upgrade("3", await upgradeManager.nonce());
+      expect(
+        await upgradeManager.abstractContractAddresses("AbstractContract")
+      ).to.eq(AddressZero);
+    });
+
+    it("only allows proposers to call", async () => {
+      await expect(
+        upgradeManager.proposeAbstract("AbstractContract", abstract1.address)
+      ).to.be.rejectedWith("Caller is not proposer");
+    });
+
+    it("last proposed address for abstract contract wins", async () => {
+      let abstract2 = await AbstractContractV1.deploy();
+      await upgradeManagerAsProposer.proposeAbstract(
+        "AbstractContract",
+        abstract1.address
+      );
+      await upgradeManagerAsProposer.proposeAbstract(
+        "AbstractContract",
+        abstract2.address
+      );
+      await upgradeManager.upgrade("1", await upgradeManager.nonce());
+      expect(
+        await upgradeManager.abstractContractAddresses("AbstractContract")
+      ).to.eq(abstract2.address);
+    });
+
+    it("allows to withdraw all abstract contract proposals", async () => {
+      await upgradeManagerAsProposer.proposeAbstract(
+        "AbstractContract",
+        abstract1.address
+      );
+      await expect(
+        upgradeManager.withdrawAllAbstractProposals()
+      ).to.be.rejectedWith("Caller is not proposer");
+      await upgradeManagerAsProposer.withdrawAllAbstractProposals();
+      await upgradeManager.upgrade("1", await upgradeManager.nonce());
+      expect(
+        await upgradeManager.abstractContractAddresses("AbstractContract")
+      ).to.eq(AddressZero);
+    });
+    it("requires a contract address", async () => {
+      await expect(
+        upgradeManagerAsProposer.proposeAbstract("AbstractContract", proposer)
+      ).to.be.rejectedWith("Proposed address is not a contract");
+    });
+    it("has events");
+  });
+
+  it("allows proposing adoption");
+
   // describe("Future", function () {
   //   it("has meaningful version storage not string");
   //   it("has support for pausing all contracts that support pause")
+  //   it("allows bulk resetting changes")
   // });
 });

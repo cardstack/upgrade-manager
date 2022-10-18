@@ -27,3 +27,15 @@ contract UpgradedUpgradeManager is UpgradeManager {
     return "UpgradedUpgradeManager";
   }
 }
+
+contract AbstractContractV1 {
+  function version() external pure returns (string memory) {
+    return "1";
+  }
+}
+
+contract AbstractContractV2 {
+  function version() external pure returns (string memory) {
+    return "2";
+  }
+}
