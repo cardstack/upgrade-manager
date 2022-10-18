@@ -152,6 +152,7 @@ describe("Basic project setup", function () {
   it("Audit process.env");
   it("deploys owned by safe");
   it("https://github.com/thegostep/solidity-create2-deployer");
+  it("https://github.com/Arachnid/deterministic-deployment-proxy");
   it(
     "builds artifact and populates with npm publish readUpgradeManagerArtifactFromPlugin"
   );

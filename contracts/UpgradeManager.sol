@@ -22,7 +22,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
 
   struct AbstractContract {
     string id;
-    address addr;
+    address contractAddress;
   }
 
   uint256 public constant CONTRACT_VERSION = 1;
@@ -53,15 +53,20 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     address implementationAddress,
     bytes encodedCall
   );
+  event AbstractProposed(string contractId, address contractAddress);
+  event AbstractProposalsWithdrawn();
   event ChangesWithdrawn(string contractId);
   event Upgraded(string version);
 
   modifier onlyProposers() {
-    if (upgradeProposers.contains(msg.sender)) {
-      _;
-    } else {
-      revert("Caller is not proposer");
-    }
+    _checkProposer();
+    _;
+  }
+
+  modifier onlyOwnerOrProposers() {
+    _checkOwner();
+    _checkProposer();
+    _;
   }
 
   /**
@@ -136,12 +141,14 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
       "Proposed address is not a contract"
     );
     proposedAbstractContracts.push(
-      AbstractContract({id: _contractId, addr: _contractAddress})
+      AbstractContract({id: _contractId, contractAddress: _contractAddress})
     );
+    emit AbstractProposed(_contractId, _contractAddress);
   }
 
   function withdrawAllAbstractProposals() external onlyProposers {
     delete proposedAbstractContracts;
+    emit AbstractProposalsWithdrawn();
   }
 
   function adoptContract(
@@ -208,7 +215,8 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     // Abstract contracts
     for (uint256 i = 0; i < proposedAbstractContracts.length; i++) {
       AbstractContract storage abstractContract = proposedAbstractContracts[i];
-      abstractContractAddresses[abstractContract.id] = abstractContract.addr;
+      abstractContractAddresses[abstractContract.id] = abstractContract
+        .contractAddress;
     }
     delete proposedAbstractContracts;
 
@@ -316,6 +324,10 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     _resetChanges(proxyAddress);
     emit ChangesWithdrawn(_contractId);
     nonce++;
+  }
+
+  function _checkProposer() internal view virtual {
+    require(upgradeProposers.contains(msg.sender), "Caller is not proposer");
   }
 
   function _verifyOwnership(address _proxyAddress, address _proxyAdminAddress)

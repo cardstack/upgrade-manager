@@ -1098,7 +1098,7 @@ describe("UpgradeManager", () => {
     ).to.be.rejectedWith("Too many contracts adopted");
   });
 
-  describe.only("Proposing abstract contract", async () => {
+  describe("Proposing abstract contract", async () => {
     let abstract1: AbstractContractV1;
     beforeEach(async () => {
       abstract1 = await AbstractContractV1.deploy();
@@ -1114,14 +1114,18 @@ describe("UpgradeManager", () => {
         upgradeManager.proposedAbstractContracts(0)
       ).to.be.rejectedWith("call revert exception");
 
-      await upgradeManagerAsProposer.proposeAbstract(
-        "AbstractContract",
-        abstract1.address
-      );
+      await expect(
+        upgradeManagerAsProposer.proposeAbstract(
+          "AbstractContract",
+          abstract1.address
+        )
+      )
+        .to.emit(upgradeManagerAsProposer, "AbstractProposed")
+        .withArgs("AbstractContract", abstract1.address);
 
       let prop1 = await upgradeManager.proposedAbstractContracts(0);
       expect(prop1.id).to.eq("AbstractContract");
-      expect(prop1.addr).to.eq(abstract1.address);
+      expect(prop1.contractAddress).to.eq(abstract1.address);
 
       await expect(
         upgradeManager.proposedAbstractContracts(1)
@@ -1134,7 +1138,7 @@ describe("UpgradeManager", () => {
 
       let prop2 = await upgradeManager.proposedAbstractContracts(1);
       expect(prop2.id).to.eq("AbstractContractSameImplementationDifferentName");
-      expect(prop2.addr).to.eq(abstract1.address);
+      expect(prop2.contractAddress).to.eq(abstract1.address);
 
       expect(
         await upgradeManager.abstractContractAddresses("AbstractContract")
@@ -1219,7 +1223,9 @@ describe("UpgradeManager", () => {
       await expect(
         upgradeManager.withdrawAllAbstractProposals()
       ).to.be.rejectedWith("Caller is not proposer");
-      await upgradeManagerAsProposer.withdrawAllAbstractProposals();
+      await expect(
+        upgradeManagerAsProposer.withdrawAllAbstractProposals()
+      ).to.emit(upgradeManagerAsProposer, "AbstractProposalsWithdrawn");
       await upgradeManager.upgrade("1", await upgradeManager.nonce());
       expect(
         await upgradeManager.abstractContractAddresses("AbstractContract")
@@ -1230,10 +1236,7 @@ describe("UpgradeManager", () => {
         upgradeManagerAsProposer.proposeAbstract("AbstractContract", proposer)
       ).to.be.rejectedWith("Proposed address is not a contract");
     });
-    it("has events");
   });
-
-  it("allows proposing adoption");
 
   // describe("Future", function () {
   //   it("has meaningful version storage not string");
