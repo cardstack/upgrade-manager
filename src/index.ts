@@ -7,6 +7,7 @@ import {
 } from "hardhat/types";
 import { deploy } from "./deploy";
 import { execute } from "./execute";
+import { reportProtocolStatus } from "./status";
 
 // import { ExampleHardhatRuntimeEnvironmentField } from "./ExampleHardhatRuntimeEnvironmentField";
 // This import is needed to let the TypeScript compiler know that it should include your type
@@ -34,10 +35,6 @@ extendConfig(
     config.upgradeManager = { contracts };
   }
 );
-
-task("deploy:status", "shows deploy status", async () => {
-  console.log("Deploy status 2");
-});
 
 type TaskParams = {
   deployNetwork: string;
@@ -136,6 +133,12 @@ deployTask(
   "deploy",
   "Deploys new contracts and propose implementation and config changes for existing deployed contracts",
   deploy
+);
+
+deployTask(
+  "deploy:status",
+  "Shows current deploy status",
+  reportProtocolStatus
 );
 
 deployTask(

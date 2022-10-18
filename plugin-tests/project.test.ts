@@ -21,8 +21,8 @@ declare module "hardhat/types/runtime" {
 }
 
 describe("Basic project setup", function () {
-  this.timeout(120000);
-  // describe("Hardhat Runtime Environment extension", function () {
+  this.timeout(60000);
+  // describe("Sample for Hardhat Runtime Environment extension", function () {
   //   useEnvironment("upgrade-managed-project");
 
   //   it("Should add the example field", function () {
@@ -61,13 +61,13 @@ describe("Basic project setup", function () {
     ]);
   });
 
-  it("Should show the initial status", async function () {
-    let { stdout } = await runTask(this.hre, "deploy:status");
+  it("Should deploy and upgrade contracts", async function () {
+    await expect(
+      runTask(this.hre, "deploy:status", {
+        deployNetwork: "hardhat",
+      })
+    ).to.be.rejectedWith(/Could not find upgrade manager address/);
 
-    expect(stdout).to.include("Deploy status");
-  });
-
-  it("Should deploy a mock contract", async function () {
     let { stdout } = await runTask(this.hre, "deploy", {
       deployNetwork: "hardhat",
     });
@@ -131,6 +131,7 @@ describe("Basic project setup", function () {
     }));
 
     expect(await mockUpgradeableContract.fooString()).to.eq("foo string value");
+    // Check it contains the current network value i.e. can be dynamic
     expect(await mockUpgradeableSecondInstance.fooString()).to.eq(
       "foo string value second hardhat"
     );
@@ -145,8 +146,7 @@ describe("Basic project setup", function () {
     expect(await upgradeManager.version()).to.eq("1.0");
   });
 
-  it("has autoconfirm as task param");
-  it("cals the task again and verifies no changes");
+  it("calls the task again and verifies no changes");
 
   it("Audit TODOs");
   it("Audit process.env");
@@ -163,7 +163,6 @@ describe("Basic project setup", function () {
   it("handles verification");
   it("audit dryRun");
   it("process.env.IMMEDIATE_CONFIG_APPLY");
-  it("CARDPAY_VERSION");
 });
 
 // describe("Unit tests examples", function () {

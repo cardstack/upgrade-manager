@@ -1,7 +1,6 @@
 import {
   getUpgradeManager,
   log,
-  confirm,
   retryAndWaitForNonceIncrease,
   formatEncodedCall,
   confirmOrAutoconfirm,

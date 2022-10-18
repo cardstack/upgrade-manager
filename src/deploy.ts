@@ -5,6 +5,7 @@ import proposeChanges from "./propose-changes";
 import { log } from "./util";
 
 import { DeployConfig } from "./types";
+import { getProtocolStatus } from "./status";
 
 export async function deploy(config: DeployConfig) {
   log("Deploying from", config.deployAddress);
@@ -14,8 +15,7 @@ export async function deploy(config: DeployConfig) {
   await configureContracts(config, pendingChanges, addresses);
 
   await proposeChanges(config, pendingChanges, addresses);
-  // TODO: Report Status
-  // console.log((await reportProtocolStatus(network)).table.toString());
+  console.log((await getProtocolStatus(config)).table.toString());
 
   // TODO: Verification
   //  let reverify = [];

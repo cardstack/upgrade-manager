@@ -23,7 +23,6 @@ import {
   DeployConfigMaybeWithoutDeployAddressYet,
   MetadataKey,
   RetryCallback,
-  SolidityValue,
 } from "./types";
 
 export const PLUGIN_NAME = "upgrade-manager";
@@ -254,7 +253,9 @@ export async function deployedImplementationMatches(
 ): Promise<boolean> {
   let artifact = await config.hre.artifacts.readArtifact(contractName);
 
-  let deployedCode = await getProvider(config).getCode(implementationAddress);
+  let deployedCode = await getSourceProvider(config).getCode(
+    implementationAddress
+  );
   if (!deployedCode || deployedCode === "0x") {
     return false;
   }
@@ -271,7 +272,10 @@ export async function deployedImplementationMatches(
   return deployedCodeHash === localCodeHash;
 }
 
-export function getProvider(config: DeployConfig): BaseProvider {
+export function getSourceProvider(config: DeployConfig): BaseProvider {
+  if (config.network == "hardhat") {
+    return config.hre.ethers.getDefaultProvider();
+  }
   return config.hre.ethers.getDefaultProvider(getRpcUrl(config));
 }
 
@@ -285,11 +289,7 @@ function getRpcUrl(
 
   throw new HardhatPluginError(
     PLUGIN_NAME,
-    `Could not determine rpc url from network config ${JSON.stringify(
-      networkConfig,
-      null,
-      2
-    )}`
+    `Could not determine rpc url from network config ${networkConfig}`
   );
 }
 

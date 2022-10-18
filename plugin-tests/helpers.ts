@@ -9,6 +9,11 @@ import rmrf from "rmrf";
 import { stdout } from "test-console";
 import { getErrorMessageAndStack } from "../shared";
 import { UpgradeManager } from "../typechain-types";
+
+import chai from "chai";
+import chaiAsPromised from "chai-as-promised";
+chai.use(chaiAsPromised);
+
 declare module "mocha" {
   interface Context {
     hre: HardhatRuntimeEnvironment;
@@ -114,8 +119,10 @@ export async function captureOutput<T>(
   } catch (e) {
     inspect.restore();
     let { message } = getErrorMessageAndStack(e);
-    console.log("Error when capturing output:", e, "\n", message);
-    console.log("\nOutput:\n\n", ...inspect.output);
+    if (process.env.DEBUG_TASK_OUTPUT) {
+      console.log("Error when capturing output:", e, "\n", message);
+      console.log("\nOutput:\n\n", ...inspect.output);
+    }
     throw e;
   } finally {
     inspect.restore();

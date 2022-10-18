@@ -1,4 +1,4 @@
-pragma solidity ^0.8.17;
+pragma solidity 0.8.17;
 pragma abicoder v1;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
