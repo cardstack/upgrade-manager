@@ -25,8 +25,6 @@ export default async function (config: DeployConfig): Promise<{
 }> {
   const { network: sourceNetwork, hre } = config;
 
-  const { ethers } = hre;
-
   const pendingChanges: PendingChanges = {
     newImplementations: {},
     encodedCalls: {},
