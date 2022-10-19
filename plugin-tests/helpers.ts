@@ -138,10 +138,10 @@ export async function captureOutput<T>(
   };
 }
 
-export async function runTask(
+export async function runTask<T>(
   hre: HardhatRuntimeEnvironment,
   task: string,
   taskArguments?: unknown
-): Promise<ConsoleCapturedResult<Promise<unknown>>> {
-  return await captureOutput(() => hre.run(task, taskArguments));
+): Promise<ConsoleCapturedResult<T>> {
+  return await captureOutput(() => hre.run(task, taskArguments) as T);
 }

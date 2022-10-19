@@ -16,29 +16,4 @@ export async function deploy(config: DeployConfig) {
 
   await proposeChanges(config, pendingChanges, addresses);
   console.log((await getProtocolStatus(config)).table.toString());
-
-  // TODO: Verification
-  //  let reverify = [];
-
-  //  for (let impl of unverifiedImpls) {
-  //    if (!process.env.SKIP_VERIFY) {
-  //      try {
-  //        await hre.run("verify:verify", {
-  //          address: impl,
-  //          constructorArguments: [],
-  //        });
-  //      } catch (e) {
-  //        console.error(e);
-  //      }
-  //    }
-  //    reverify.push(impl);
-  //  }
-
-  //  if (reverify.length > 0) {
-  //    log(`
-  // Implementation contract verification commands:`);
-  //    for (let address of reverify) {
-  //      log(`npx hardhat verify --network ${network} ${address}`);
-  //    }
-  //  }
 }

@@ -49,7 +49,7 @@ type TaskParams = {
 function deployTask(
   taskName: string,
   taskDescription: string,
-  cb: (deployConfig: DeployConfig, params: TaskParams) => Promise<void>
+  cb: (deployConfig: DeployConfig, params: TaskParams) => Promise<unknown>
 ) {
   return task(taskName, taskDescription)
     .addPositionalParam(
@@ -125,7 +125,7 @@ function deployTask(
 
       let deployAddress: string = await getDeployAddress(deployConfig);
 
-      await cb({ ...deployConfig, deployAddress }, params);
+      return await cb({ ...deployConfig, deployAddress }, params);
     });
 }
 

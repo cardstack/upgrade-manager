@@ -120,6 +120,10 @@ export default async function (config: DeployConfig): Promise<{
             `Deployed new abstract contract ${contractId} (${contractName}) to ${contract.address}`
           );
           addresses[contractId] = contract.address;
+
+          await retryAndWaitForNonceIncrease(config, () =>
+            upgradeManager.proposeAbstract(contractId, contract.address)
+          );
         }
       }
     } else {

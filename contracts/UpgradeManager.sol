@@ -41,7 +41,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
 
   AbstractContract[] public proposedAbstractContracts;
   EnumerableSetUpgradeable.Bytes32Set internal abstractContractIdHashes;
-  mapping(bytes32 => AbstractContract) public abstractContracts; // keccak256(contract id) <=> AbstractContract struct
+  mapping(bytes32 => AbstractContract) public abstractContractsByIdHash; // keccak256(contract id) <=> AbstractContract struct
 
   event Setup();
   event ProposerAdded(address proposer);
@@ -106,7 +106,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     address[] memory result = new address[](len);
 
     for (uint256 i = 0; i < len; i++) {
-      result[i] = abstractContracts[abstractContractIdHashes.at(i)]
+      result[i] = abstractContractsByIdHash[abstractContractIdHashes.at(i)]
         .contractAddress;
     }
     return result;
@@ -134,7 +134,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     returns (address)
   {
     return
-      abstractContracts[keccak256(abi.encodePacked(_contractId))]
+      abstractContractsByIdHash[keccak256(abi.encodePacked(_contractId))]
         .contractAddress;
   }
 
@@ -152,6 +152,14 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     returns (bytes memory)
   {
     return adoptedContractsByProxyAddress[_proxyAddress].encodedCall;
+  }
+
+  function getProposedAbstractContractsLength()
+    external
+    view
+    returns (uint256)
+  {
+    return proposedAbstractContracts.length;
   }
 
   function addUpgradeProposer(address proposerAddress) external onlyOwner {
@@ -250,10 +258,10 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
       AbstractContract storage abstractContract = proposedAbstractContracts[i];
       bytes32 idHash = keccak256(abi.encodePacked(abstractContract.id));
       if (abstractContract.contractAddress == address(0)) {
-        delete abstractContracts[idHash];
+        delete abstractContractsByIdHash[idHash];
         abstractContractIdHashes.remove(idHash);
       } else {
-        abstractContracts[idHash] = abstractContract;
+        abstractContractsByIdHash[idHash] = abstractContract;
         abstractContractIdHashes.add(idHash);
       }
     }

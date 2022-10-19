@@ -1114,6 +1114,9 @@ describe("UpgradeManager", () => {
         upgradeManager.proposedAbstractContracts(0)
       ).to.be.rejectedWith("call revert exception");
       expect(await upgradeManager.getAbstractContractIdHashes()).to.be.empty;
+      expect(await upgradeManager.getProposedAbstractContractsLength()).to.eq(
+        0
+      );
 
       await expect(
         upgradeManagerAsProposer.proposeAbstract(
@@ -1123,6 +1126,10 @@ describe("UpgradeManager", () => {
       )
         .to.emit(upgradeManagerAsProposer, "AbstractProposed")
         .withArgs("AbstractContract", abstract1.address);
+
+      expect(await upgradeManager.getProposedAbstractContractsLength()).to.eq(
+        1
+      );
 
       let prop1 = await upgradeManager.proposedAbstractContracts(0);
       expect(await upgradeManager.getAbstractContractAddresses()).to.be.empty;
@@ -1153,6 +1160,10 @@ describe("UpgradeManager", () => {
           "AbstractContractSameImplementationDifferentName"
         )
       ).to.eq(AddressZero);
+
+      expect(await upgradeManager.getProposedAbstractContractsLength()).to.eq(
+        2
+      );
 
       await upgradeManager.upgrade("1", await upgradeManager.nonce());
       expect(
@@ -1186,6 +1197,10 @@ describe("UpgradeManager", () => {
       await expect(
         upgradeManager.proposedAbstractContracts(1)
       ).to.be.rejectedWith("call revert exception");
+
+      expect(await upgradeManager.getProposedAbstractContractsLength()).to.eq(
+        0
+      );
 
       let abstract2 = await AbstractContractV2.deploy();
       await upgradeManagerAsProposer.proposeAbstract(
@@ -1233,9 +1248,10 @@ describe("UpgradeManager", () => {
         ),
       ]);
 
-      let abstractContractStruct = await upgradeManager.abstractContracts(
-        solidityKeccak256(["string"], ["AbstractContract"])
-      );
+      let abstractContractStruct =
+        await upgradeManager.abstractContractsByIdHash(
+          solidityKeccak256(["string"], ["AbstractContract"])
+        );
       expect(abstractContractStruct.id).to.eq("");
       expect(abstractContractStruct.contractAddress).to.eq(AddressZero);
     });

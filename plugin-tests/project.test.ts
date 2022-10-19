@@ -4,19 +4,23 @@ import { expect } from "chai";
 
 import { AddressZero } from "@ethersproject/constants";
 
+import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
+import { HardhatUpgrades } from "@openzeppelin/hardhat-upgrades";
+import Table from "cli-table3";
+import { ethers } from "ethers";
 import "../src/type-extensions";
 import {
   getFixtureProjectUpgradeManager,
   runTask,
   useEnvironment,
 } from "./helpers";
-import { ethers } from "ethers";
-import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
+import { sortBy } from "lodash";
 
 declare module "hardhat/types/runtime" {
   interface HardhatRuntimeEnvironment {
     // We omit the ethers field because it is redundant.
     ethers: typeof ethers & HardhatEthersHelpers;
+    upgrades: HardhatUpgrades;
   }
 }
 
@@ -152,6 +156,64 @@ describe("Basic project setup", function () {
     );
 
     expect(await upgradeManager.version()).to.eq("1.0");
+
+    let { result } = await runTask<{ table: Table.Table; anyChanged: boolean }>(
+      this.hre,
+      "deploy:status",
+      {
+        deployNetwork: "hardhat",
+      }
+    );
+
+    let abstractContractAddress =
+      await upgradeManager.getAbstractContractAddress("AbstractContract");
+
+    let implAddress = await this.hre.upgrades.erc1967.getImplementationAddress(
+      mockUpgradeableContract.address
+    );
+
+    if (!result) {
+      throw "missing result";
+    }
+
+    expect(sortBy(result.table, (r) => (r as string[])[0])).to.deep.eq([
+      [
+        "AbstractContract",
+        "AbstractContract",
+        null,
+        abstractContractAddress,
+        null,
+        null,
+        null,
+      ],
+      [
+        "ContractWithNoConfig",
+        "MockUpgradeableContract",
+        await upgradeManager.adoptedContractAddresses("ContractWithNoConfig"),
+        implAddress,
+        null,
+        null,
+        null,
+      ],
+      [
+        "MockUpgradeableContract",
+        "MockUpgradeableContract",
+        mockUpgradeableContract.address,
+        implAddress,
+        null,
+        null,
+        null,
+      ],
+      [
+        "MockUpgradeableSecondInstance",
+        "MockUpgradeableContract",
+        mockUpgradeableSecondInstance.address,
+        implAddress,
+        null,
+        null,
+        null,
+      ],
+    ]);
   });
 
   it("calls the task again and verifies no changes");
@@ -174,6 +236,7 @@ describe("Basic project setup", function () {
   it("handles verification");
   it("audit dryRun");
   it("process.env.IMMEDIATE_CONFIG_APPLY");
+  it("handles changing from abstract to proxy and back");
 });
 
 // describe("Unit tests examples", function () {

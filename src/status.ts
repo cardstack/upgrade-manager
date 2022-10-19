@@ -1,20 +1,18 @@
-import deployContracts from "./deploy-contracts";
-import configureContracts from "./configure-contracts";
-import proposeChanges from "./propose-changes";
 import Table from "cli-table3";
 
 import {
   deployedCodeMatches,
+  deployedImplementationMatches,
   formatEncodedCall,
   getSourceProvider,
   getUpgradeManager,
-  log,
   PLUGIN_NAME,
 } from "./util";
 
-import { DeployConfig } from "./types";
 import { AddressZero } from "@ethersproject/constants";
 import { HardhatPluginError } from "hardhat/plugins";
+import { UpgradeManagerContractConfig } from "hardhat/types";
+import { DeployConfig } from "./types";
 
 export async function reportProtocolStatus(config: DeployConfig) {
   let { table, anyChanged } = await getProtocolStatus(config, true);
@@ -26,6 +24,7 @@ export async function reportProtocolStatus(config: DeployConfig) {
   } else {
     console.log("No changes detected to deploy");
   }
+  return { table, anyChanged };
 }
 
 export async function getProtocolStatus(
@@ -34,10 +33,7 @@ export async function getProtocolStatus(
 ): Promise<{ table: Table.Table; anyChanged: boolean }> {
   let upgradeManager = await getUpgradeManager(config, true);
 
-  let proxyAddresses = await upgradeManager.getProxies();
-  let abstractContractAddresses;
-
-  let { contracts } = config.hre.config.upgradeManager;
+  let contractsConfig = config.hre.config.upgradeManager.contracts;
 
   let anyChanged = false;
 
@@ -53,18 +49,13 @@ export async function getProtocolStatus(
     ],
   });
 
-  for (let proxyAddress of proxyAddresses) {
+  for (let proxyAddress of await upgradeManager.getProxies()) {
     let adoptedContract = await upgradeManager.adoptedContractsByProxyAddress(
       proxyAddress
     );
-    let contractConfig = contracts.find((c) => c.id == adoptedContract.id);
 
-    if (!contractConfig) {
-      throw new HardhatPluginError(
-        PLUGIN_NAME,
-        `Could not find contract config in your local configuration for adopted contract ${adoptedContract.id}`
-      );
-    }
+    let contractConfig = getContractConfig(contractsConfig, adoptedContract.id);
+
     let contractName = contractConfig.contract;
     let contract = await config.hre.ethers.getContractAt(
       contractName,
@@ -120,5 +111,97 @@ export async function getProtocolStatus(
     ]);
   }
 
+  let proposedAbstractCount = (
+    await upgradeManager.getProposedAbstractContractsLength()
+  ).toNumber();
+
+  let proposedAbstracts: { [contractId: string]: string } = {};
+
+  for (let i = 0; i < proposedAbstractCount; i++) {
+    let proposedAbstract = await upgradeManager.proposedAbstractContracts(i);
+    proposedAbstracts[proposedAbstract.id] = proposedAbstract.contractAddress;
+  }
+
+  for (let abstractContractIdHash of await upgradeManager.getAbstractContractIdHashes()) {
+    let abstractContract = await upgradeManager.abstractContractsByIdHash(
+      abstractContractIdHash
+    );
+    let abstractContractAddress = abstractContract.contractAddress;
+    let contractConfig = getContractConfig(
+      contractsConfig,
+      abstractContract.id
+    );
+    let contractName = contractConfig.contract;
+    let localBytecodeChanged = (await deployedImplementationMatches(
+      config,
+      contractName,
+      abstractContractAddress
+    ))
+      ? null
+      : "YES";
+
+    let proposedAddress = proposedAbstracts[abstractContract.id];
+
+    let codeChanges =
+      localBytecodeChanged ||
+      (proposedAddress &&
+        proposedAddress.toLowerCase() != abstractContractAddress);
+
+    if (codeChanges) {
+      anyChanged = true;
+    }
+
+    if (!codeChanges && !includeUnchanged) {
+      continue;
+    }
+
+    table.push([
+      abstractContract.id,
+      contractName,
+      null,
+      abstractContractAddress,
+      proposedAddress == AddressZero
+        ? "DELETION PROPOSED"
+        : proposedAddress || null,
+      null,
+      localBytecodeChanged,
+    ]);
+
+    delete proposedAbstracts[abstractContract.id];
+  }
+
+  for (let [contractId, proposedAddress] of Object.entries(proposedAbstracts)) {
+    // Because of the delete statement above, any proposals here are now for new,
+    // as-yet unregistered contract ids
+    anyChanged = true;
+
+    let contractConfig = getContractConfig(contractsConfig, contractId);
+
+    table.push([
+      contractId,
+      contractConfig.contract,
+      null,
+      "N/A (proposed)",
+      proposedAddress || null,
+      null,
+      "YES",
+    ]);
+  }
+
   return { table, anyChanged };
+}
+
+function getContractConfig(
+  contractsConfig: UpgradeManagerContractConfig[],
+  contractId: string
+) {
+  let contractConfig = contractsConfig.find((c) => c.id == contractId);
+
+  if (!contractConfig) {
+    throw new HardhatPluginError(
+      PLUGIN_NAME,
+      `Could not find contract config in your local configuration for contract ${contractId}`
+    );
+  }
+  return contractConfig;
 }

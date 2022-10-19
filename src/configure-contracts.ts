@@ -38,9 +38,19 @@ export default async function (
   for (const {
     id: contractId,
     contract: contractName,
+    abstract,
   } of upgradeManagerConfig.contracts) {
     let log = (...strs: string[]) =>
       defaultLog(colors.yellow(`[${contractId}]`), ...strs);
+
+    if (abstract) {
+      log(
+        "Skipping",
+        contractId,
+        "because abstract contracts are not configurable"
+      );
+      continue;
+    }
 
     let address = addresses[contractId];
     const contractFactory = await makeFactory(deployConfig, contractName);

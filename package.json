@@ -81,6 +81,7 @@
   "dependencies": {
     "@openzeppelin/contracts-upgradeable": "^4.8.0-rc.1",
     "@openzeppelin/hardhat-upgrades": "^1.21.0",
+    "cli-table3": "^0.6.3",
     "colors": "^1.4.0",
     "enquirer": "^2.3.6",
     "fs-extra": "^10.1.0",
