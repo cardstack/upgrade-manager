@@ -30,10 +30,11 @@ const config: HardhatUserConfig = {
         deterministic: true,
       },
       {
-        id: "DeterministicContract",
+        id: "DeterministicContractDifferentSalt",
         contract: "AbstractContract",
         abstract: true,
-        deterministic: "other salt!",
+        deterministic:
+          "0x0000000000000000000000000000000000000000000000000000000000000001",
       },
     ],
   },

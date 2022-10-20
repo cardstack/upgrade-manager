@@ -12,6 +12,12 @@ import { UpgradeManager } from "../typechain-types";
 
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
+import {
+  CREATE2_PROXY_DEPLOYMENT_COST,
+  CREATE2_PROXY_DEPLOYMENT_SIGNER_ADDRESS,
+  deployCreate2Proxy,
+} from "../src/create2";
+import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 chai.use(chaiAsPromised);
 
 declare module "mocha" {
@@ -144,4 +150,12 @@ export async function runTask<T>(
   taskArguments?: unknown
 ): Promise<ConsoleCapturedResult<T>> {
   return await captureOutput(() => hre.run(task, taskArguments) as T);
+}
+
+export async function setupCreate2Proxy(hre: HardhatRuntimeEnvironment) {
+  await setBalance(
+    CREATE2_PROXY_DEPLOYMENT_SIGNER_ADDRESS,
+    CREATE2_PROXY_DEPLOYMENT_COST
+  );
+  await deployCreate2Proxy(hre.ethers.provider);
 }

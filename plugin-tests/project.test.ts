@@ -20,6 +20,7 @@ import "../src/type-extensions";
 import {
   getFixtureProjectUpgradeManager,
   runTask,
+  setupCreate2Proxy,
   useEnvironment,
 } from "./helpers";
 
@@ -30,6 +31,11 @@ declare module "hardhat/types/runtime" {
     upgrades: HardhatUpgrades;
   }
 }
+
+const AbstractContractZeroSaltCreate2Address =
+  "0xe8C4B6c633191414078A38ef86d1b90cF675d71d";
+const AbstractContractOneSaltCreate2Address =
+  "0xEDC101497331C535E5868D910deE15D6aBEC51F1";
 
 describe("Basic project setup", function () {
   this.timeout(60000);
@@ -84,10 +90,19 @@ describe("Basic project setup", function () {
         abstract: true,
         deterministic: true,
       },
+      {
+        abstract: true,
+        contract: "AbstractContract",
+        deterministic:
+          "0x0000000000000000000000000000000000000000000000000000000000000001",
+        id: "DeterministicContractDifferentSalt",
+      },
     ]);
   });
 
   it("Should deploy and upgrade contracts", async function () {
+    await setupCreate2Proxy(this.hre);
+
     await expect(
       runTask(this.hre, "deploy:status", {
         deployNetwork: "hardhat",
@@ -184,8 +199,6 @@ describe("Basic project setup", function () {
 
     let abstractContractAddress =
       await upgradeManager.getAbstractContractAddress("AbstractContract");
-    let deterministicContractAddress =
-      await upgradeManager.getAbstractContractAddress("DeterministicContract");
 
     let implAddress = await this.hre.upgrades.erc1967.getImplementationAddress(
       mockUpgradeableContract.address
@@ -218,7 +231,16 @@ describe("Basic project setup", function () {
         "DeterministicContract",
         "AbstractContract",
         null,
-        deterministicContractAddress,
+        AbstractContractZeroSaltCreate2Address,
+        null,
+        null,
+        null,
+      ],
+      [
+        "DeterministicContractDifferentSalt",
+        "AbstractContract",
+        null,
+        AbstractContractOneSaltCreate2Address,
         null,
         null,
         null,

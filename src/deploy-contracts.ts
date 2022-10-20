@@ -116,8 +116,24 @@ export default async function (config: DeployConfig): Promise<{
           let contract: Contract = await retryAndWaitForNonceIncrease(
             config,
             async () => {
-              let c = await factory.deploy();
-              return c.deployed();
+              if (deterministic) {
+                let salt;
+                if (typeof deterministic == "string") {
+                  salt = deterministic;
+                } else {
+                  salt = EMPTY_BYTES_32;
+                }
+                let address = await deployCreate2Contract({
+                  bytecode: factory.bytecode,
+                  signer: factory.signer,
+                  salt,
+                });
+
+                return factory.attach(address);
+              } else {
+                let c = await factory.deploy();
+                return c.deployed();
+              }
             }
           );
           log(

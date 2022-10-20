@@ -1,12 +1,7 @@
-import {
-  BaseProvider,
-  Provider,
-  TransactionResponse,
-} from "@ethersproject/providers";
+import { Provider } from "@ethersproject/providers";
 import { BigNumber, Signer } from "ethers";
-import { concat, hexDataLength, isHexString } from "ethers/lib/utils";
+import { concat, hexDataLength } from "ethers/lib/utils";
 import { HardhatPluginError } from "hardhat/plugins";
-import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { PLUGIN_NAME } from "./util";
 
 // Source: https://github.com/Arachnid/deterministic-deployment-proxy (https://archive.ph/wip/yQGLQ)
@@ -73,7 +68,7 @@ async function validateCreate2Bytecode(provider: Provider) {
   } else if (code == "0x") {
     throw new HardhatPluginError(
       PLUGIN_NAME,
-      `CREATE2 bytecode is not deployed to contract address ${CREATE2_PROXY_ADDRESS}`
+      `CREATE2 proxy bytecode is not deployed to contract address ${CREATE2_PROXY_ADDRESS}`
     );
   } else {
     throw new HardhatPluginError(
@@ -103,7 +98,7 @@ export async function deployCreate2Contract({
   if (hexDataLength(salt) != 32) {
     throw new HardhatPluginError(
       PLUGIN_NAME,
-      "Salt must be a valid 0x prefixed 32 byte hex string"
+      `Salt must be a valid 0x prefixed 32 byte hex string, but it was ${salt}`
     );
   }
 

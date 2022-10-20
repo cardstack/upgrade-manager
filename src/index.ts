@@ -47,6 +47,18 @@ extendConfig(
         }
       }
     );
+
+    let seenIds: { [id: string]: true } = {};
+    contracts.forEach((c) => {
+      if (seenIds[c.id]) {
+        throw new HardhatPluginError(
+          PLUGIN_NAME,
+          `Duplicate contract id ${c.id}`
+        );
+      }
+
+      seenIds[c.id] = true;
+    });
     config.upgradeManager = { contracts };
   }
 );
