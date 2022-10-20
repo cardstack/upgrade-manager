@@ -172,7 +172,7 @@ representing configuration of the contract. The options are as follows:
 For each contract id above that you want to configure, add a file in the `config/` subdirectory of your hardhat project, for example:
 
 ```typescript
-import { ConfigFunction } from "../../../../src/types";
+import { ConfigFunction } from "@cardstack/upgrade-manager/types";
 
 let config: ConfigFunction = async function ({ address }) {
   return {
