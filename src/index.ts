@@ -1,21 +1,24 @@
 import { extendConfig, task, types } from "hardhat/config";
 // import { lazyObject } from "hardhat/plugins";
+
+import "@openzeppelin/hardhat-upgrades";
 import {
   HardhatConfig,
   HardhatUserConfig,
   UpgradeManagerContractConfig,
 } from "hardhat/types";
 import { deploy } from "./deploy";
-import { execute } from "./execute";
 import { reportProtocolStatus } from "./status";
+import { upgrade } from "./upgrade";
 
 // import { ExampleHardhatRuntimeEnvironmentField } from "./ExampleHardhatRuntimeEnvironmentField";
 // This import is needed to let the TypeScript compiler know that it should include your type
 // extensions in your npm package's types file.
 
+import { HardhatPluginError } from "hardhat/plugins";
 import "./type-extensions";
 import { DeployConfig } from "./types";
-import { getDeployAddress, log } from "./util";
+import { getDeployAddress, log, PLUGIN_NAME } from "./util";
 
 extendConfig(
   (config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
@@ -26,9 +29,21 @@ extendConfig(
             id: config,
             contract: config,
             abstract: false,
+            deterministic: false,
           };
         } else {
-          return { abstract: false, contract: config.id, ...config };
+          if (config.deterministic && !config.abstract) {
+            throw new HardhatPluginError(
+              PLUGIN_NAME,
+              `Contract ${config.id} is deterministic but not abstract - only both or neither are currently supported`
+            );
+          }
+          return {
+            abstract: false,
+            deterministic: false,
+            contract: config.id,
+            ...config,
+          };
         }
       }
     );
@@ -142,9 +157,9 @@ deployTask(
 );
 
 deployTask(
-  "deploy:execute",
+  "deploy:upgrade",
   "Applies pending contract upgrades and config changes atomically",
-  (config: DeployConfig, { newVersion }) => execute(config, newVersion)
+  (config: DeployConfig, { newVersion }) => upgrade(config, newVersion)
 ).addPositionalParam(
   "newVersion",
   "The new version number to set on the upgrade manager. Does not have to increase or change",

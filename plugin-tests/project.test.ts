@@ -4,17 +4,24 @@ import { expect } from "chai";
 
 import { AddressZero } from "@ethersproject/constants";
 
+import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
 import { HardhatUpgrades } from "@openzeppelin/hardhat-upgrades";
 import Table from "cli-table3";
-import { ethers } from "ethers";
+import { ethers, Signer } from "ethers";
+import { sortBy } from "lodash";
+import {
+  CREATE2_PROXY_DEPLOYMENT_COST,
+  CREATE2_PROXY_DEPLOYMENT_SIGNER_ADDRESS,
+  deployCreate2Contract,
+  deployCreate2Proxy,
+} from "../src/create2";
 import "../src/type-extensions";
 import {
   getFixtureProjectUpgradeManager,
   runTask,
   useEnvironment,
 } from "./helpers";
-import { sortBy } from "lodash";
 
 declare module "hardhat/types/runtime" {
   interface HardhatRuntimeEnvironment {
@@ -51,9 +58,11 @@ describe("Basic project setup", function () {
         id: "MockUpgradeableContract",
         contract: "MockUpgradeableContract",
         abstract: false,
+        deterministic: false,
       },
       {
         abstract: false,
+        deterministic: false,
         id: "MockUpgradeableSecondInstance",
         contract: "MockUpgradeableContract",
       },
@@ -61,11 +70,19 @@ describe("Basic project setup", function () {
         contract: "MockUpgradeableContract",
         id: "ContractWithNoConfig",
         abstract: false,
+        deterministic: false,
       },
       {
         id: "AbstractContract",
         contract: "AbstractContract",
         abstract: true,
+        deterministic: false,
+      },
+      {
+        id: "DeterministicContract",
+        contract: "AbstractContract",
+        abstract: true,
+        deterministic: true,
       },
     ]);
   });
@@ -136,7 +153,7 @@ describe("Basic project setup", function () {
     expect(await mockUpgradeableContract.barAddress()).to.eq(AddressZero);
     expect(await mockUpgradeableSecondInstance.barAddress()).to.eq(AddressZero);
 
-    ({ stdout } = await runTask(this.hre, "deploy:execute", {
+    ({ stdout } = await runTask(this.hre, "deploy:upgrade", {
       deployNetwork: "hardhat",
       newVersion: "1.0",
       autoConfirm: true,
@@ -167,6 +184,8 @@ describe("Basic project setup", function () {
 
     let abstractContractAddress =
       await upgradeManager.getAbstractContractAddress("AbstractContract");
+    let deterministicContractAddress =
+      await upgradeManager.getAbstractContractAddress("DeterministicContract");
 
     let implAddress = await this.hre.upgrades.erc1967.getImplementationAddress(
       mockUpgradeableContract.address
@@ -196,6 +215,15 @@ describe("Basic project setup", function () {
         null,
       ],
       [
+        "DeterministicContract",
+        "AbstractContract",
+        null,
+        deterministicContractAddress,
+        null,
+        null,
+        null,
+      ],
+      [
         "MockUpgradeableContract",
         "MockUpgradeableContract",
         mockUpgradeableContract.address,
@@ -214,6 +242,29 @@ describe("Basic project setup", function () {
         null,
       ],
     ]);
+  });
+
+  describe("CREATE2", function () {
+    it("deploys the create2 proxy and a contract at a known address", async function () {
+      setBalance(
+        CREATE2_PROXY_DEPLOYMENT_SIGNER_ADDRESS,
+        CREATE2_PROXY_DEPLOYMENT_COST
+      );
+      expect(await deployCreate2Proxy(this.hre.ethers.provider)).to.be.true;
+      // Second time should not redeploy and return false
+      expect(await deployCreate2Proxy(this.hre.ethers.provider)).to.be.false;
+      let factory = await this.hre.ethers.getContractFactory(
+        "AbstractContract"
+      );
+      factory.bytecode;
+
+      let contractAddress = await deployCreate2Contract({
+        signer: this.hre.ethers.provider.getSigner(),
+        bytecode: factory.bytecode,
+      });
+
+      expect(await factory.attach(contractAddress).version()).to.eq("1");
+    });
   });
 
   it("calls the task again and verifies no changes");
@@ -237,6 +288,7 @@ describe("Basic project setup", function () {
   it("audit dryRun");
   it("process.env.IMMEDIATE_CONFIG_APPLY");
   it("handles changing from abstract to proxy and back");
+  it("safe");
 });
 
 // describe("Unit tests examples", function () {

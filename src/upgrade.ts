@@ -8,7 +8,7 @@ import {
 
 import { DeployConfig } from "./types";
 
-export async function execute(config: DeployConfig, newVersion: string) {
+export async function upgrade(config: DeployConfig, newVersion: string) {
   log("Sending transactions from", config.deployAddress);
 
   // TODO: report status

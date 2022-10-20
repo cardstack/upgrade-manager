@@ -19,12 +19,14 @@ declare module "hardhat/types/config" {
         id: string;
         contract?: string;
         abstract?: boolean;
+        deterministic?: boolean | string;
       };
 
   type UpgradeManagerContractConfig = {
     id: string;
     contract: string;
     abstract: boolean;
+    deterministic: boolean | string;
   };
 
   interface UpgradeManagerUserConfig {

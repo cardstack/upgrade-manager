@@ -4,7 +4,6 @@ import { HardhatUserConfig } from "hardhat/types";
 import "../../../src/index";
 
 import "@nomiclabs/hardhat-ethers";
-import "@openzeppelin/hardhat-upgrades";
 
 const config: HardhatUserConfig = {
   solidity: "0.8.17",
@@ -23,6 +22,18 @@ const config: HardhatUserConfig = {
       {
         id: "AbstractContract",
         abstract: true,
+      },
+      {
+        id: "DeterministicContract",
+        contract: "AbstractContract",
+        abstract: true,
+        deterministic: true,
+      },
+      {
+        id: "DeterministicContract",
+        contract: "AbstractContract",
+        abstract: true,
+        deterministic: "other salt!",
       },
     ],
   },

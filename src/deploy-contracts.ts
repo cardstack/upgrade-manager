@@ -6,6 +6,7 @@ import difference from "lodash/difference";
 import { ContractAddressMap, DeployConfig, PendingChanges } from "./types";
 
 import { getProxyAdminFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
+import { Contract } from "ethers";
 import {
   deployedCodeMatches,
   deployedImplementationMatches,
@@ -16,7 +17,7 @@ import {
   makeFactory,
   retryAndWaitForNonceIncrease,
 } from "./util";
-import { Contract } from "ethers";
+import { deployCreate2Contract, EMPTY_BYTES_32 } from "./create2";
 
 export default async function (config: DeployConfig): Promise<{
   unverifiedImpls: string[];
@@ -41,7 +42,12 @@ export default async function (config: DeployConfig): Promise<{
   // deploying to certain testnets where it's suspected nodes have stuck transactions
   // with conflicting nonces not yet mined but in the mempool
   for (let contractConfig of shuffle(contracts)) {
-    let { id: contractId, contract: contractName, abstract } = contractConfig;
+    let {
+      id: contractId,
+      contract: contractName,
+      abstract,
+      deterministic,
+    } = contractConfig;
 
     log("Contract:", contractId);
 
