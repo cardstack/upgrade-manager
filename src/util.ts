@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from "fs";
+import { dirname, join, resolve } from "path";
+
 import { VoidSigner } from "@ethersproject/abstract-signer";
 import { BaseProvider, JsonRpcProvider } from "@ethersproject/providers";
 import { impersonateAccount } from "@nomicfoundation/hardhat-network-helpers";
@@ -7,14 +10,13 @@ import colors from "colors/safe";
 import { prompt } from "enquirer";
 import { Contract, ContractFactory, Signer } from "ethers";
 import { Interface } from "ethers/lib/utils";
-import { existsSync, readFileSync } from "fs";
 import { mkdirp, readJSONSync, writeJsonSync } from "fs-extra";
 import { HardhatPluginError } from "hardhat/plugins";
 import { Artifact, HardhatNetworkHDAccountsConfig } from "hardhat/types";
 import { difference } from "lodash";
 import lodashIsEqual from "lodash/isEqual";
-import { dirname, join, resolve } from "path";
 import TrezorWalletProvider from "trezor-cli-wallet-provider";
+
 import { getErrorMessageAndStack } from "../shared";
 import { UpgradeManager, UpgradeManager__factory } from "../typechain-types";
 
@@ -115,9 +117,9 @@ export async function getSigner(
   config: DeployConfigMaybeWithoutDeployAddressYet,
   address?: string
 ): Promise<Signer> {
-  let { hre, forking, deployAddress, sourceNetwork } = config;
+  let { hre, forking, deployAddress } = config;
 
-  if (sourceNetwork == "hardhat") {
+  if (config.network == "hardhat") {
     let addressForSigner = address || deployAddress;
     if (addressForSigner) {
       return config.hre.ethers.getSigner(
@@ -287,7 +289,7 @@ function getRpcUrl(
 
   throw new HardhatPluginError(
     PLUGIN_NAME,
-    `Could not determine rpc url from network config ${networkConfig}`
+    `Could not determine rpc url from network config for current network ${deployConfig.hre.network.name}`
   );
 }
 
@@ -341,7 +343,7 @@ export async function makeFactory(
   return factory.connect(await getSigner(config));
 }
 
-async function getUpgradeManagerFactory(
+export async function getUpgradeManagerFactory(
   config: DeployConfig
 ): Promise<UpgradeManager__factory> {
   let { abi, bytecode } = readUpgradeManagerArtifactFromPlugin();
@@ -376,10 +378,7 @@ export async function getOrDeployUpgradeManager(
     let signer = UpgradeManager.signer;
 
     log("getting or deploying proxy admin");
-    const adminAddress = await retryAndWaitForNonceIncrease(config, () =>
-      config.hre.upgrades.deployProxyAdmin(signer)
-    );
-
+    const adminAddress = await config.hre.upgrades.deployProxyAdmin(signer);
     log("admin address", adminAddress);
 
     let proxyAdmin = await getContractAtWithSignature(
@@ -401,6 +400,7 @@ export async function getOrDeployUpgradeManager(
       config,
       async () => {
         let um = await UpgradeManager.deploy();
+
         await um.deployed();
         return um;
       }
@@ -522,7 +522,7 @@ function metadataPath(config: DeployConfig): string {
   return resolve(
     config.hre.config.paths.root,
     "config",
-    `upgrade-manager-deploy-data-${config.network}.json`
+    `upgrade-manager-deploy-data-${config.sourceNetwork}.json`
   );
 }
 
@@ -591,7 +591,7 @@ export function formatEncodedCallWithInterface(
 export function describeNetwork(
   config: DeployConfig | DeployConfigInput
 ): string {
-  let fork = config.forking ? `(Forking ${config.forking})` : "";
+  let fork = config.forking ? ` (Forking ${config.sourceNetwork})` : "";
 
   return `--network ${config.network}${fork}`;
 }

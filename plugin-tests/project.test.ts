@@ -1,21 +1,25 @@
-import { expect } from "chai";
-
 // import { ExampleHardhatRuntimeEnvironmentField } from "../src/ExampleHardhatRuntimeEnvironmentField";
 
 import { AddressZero } from "@ethersproject/constants";
-
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
 import { HardhatUpgrades } from "@openzeppelin/hardhat-upgrades";
+import { expect } from "chai";
 import Table from "cli-table3";
 import { ethers } from "ethers";
+import {
+  HardhatRuntimeEnvironment,
+  UpgradeManagerContractConfig,
+} from "hardhat/types";
 import { sortBy } from "lodash";
+
 import {
   CREATE2_PROXY_DEPLOYMENT_COST,
   CREATE2_PROXY_DEPLOYMENT_SIGNER_ADDRESS,
   deployCreate2Contract,
   deployCreate2Proxy,
 } from "../src/create2";
+
 import "../src/type-extensions";
 import {
   getFixtureProjectUpgradeManager,
@@ -24,7 +28,6 @@ import {
   useEnvironment,
   writeFixtureProjectFile,
 } from "./helpers";
-import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 declare module "hardhat/types/runtime" {
   interface HardhatRuntimeEnvironment {
@@ -38,6 +41,8 @@ const AbstractContractZeroSaltCreate2Address =
   "0xe8C4B6c633191414078A38ef86d1b90cF675d71d";
 const AbstractContractOneSaltCreate2Address =
   "0xEDC101497331C535E5868D910deE15D6aBEC51F1";
+const AbstractContractWithConstructorCreate2Address =
+  "0x10eDc0803800238782c483668EECe7053a116560";
 
 describe("Basic project setup", function () {
   this.timeout(60000);
@@ -61,36 +66,41 @@ describe("Basic project setup", function () {
   it("Should add the contract init spec to the config", function () {
     // Note: if config tests are failing, check for requiring app code from the test helpers, that can cause
     // problems with the hre here being the plugin's default HRE not the fixture environment hre
-    expect(this.hre.config.upgradeManager.contracts).to.deep.equal([
+    let config: UpgradeManagerContractConfig[] = [
       {
         id: "MockUpgradeableContract",
         contract: "MockUpgradeableContract",
         abstract: false,
         deterministic: false,
+        constructorArgs: [],
       },
       {
         abstract: false,
         deterministic: false,
         id: "MockUpgradeableSecondInstance",
         contract: "MockUpgradeableContract",
+        constructorArgs: [],
       },
       {
         contract: "MockUpgradeableContract",
         id: "ContractWithNoConfig",
         abstract: false,
         deterministic: false,
+        constructorArgs: [],
       },
       {
         id: "AbstractContract",
         contract: "AbstractContract",
         abstract: true,
         deterministic: false,
+        constructorArgs: [],
       },
       {
         id: "DeterministicContract",
         contract: "AbstractContract",
         abstract: true,
         deterministic: true,
+        constructorArgs: [],
       },
       {
         abstract: true,
@@ -98,8 +108,30 @@ describe("Basic project setup", function () {
         deterministic:
           "0x0000000000000000000000000000000000000000000000000000000000000001",
         id: "DeterministicContractDifferentSalt",
+        constructorArgs: [],
       },
-    ]);
+      {
+        id: "AbstractContractWithConstructor",
+        contract: "AbstractContractWithConstructor",
+        abstract: true,
+        deterministic: false,
+        constructorArgs: [
+          "0x0000000000000000000000000000000000000001",
+          "AbstractContractWithConstructorBarString",
+        ],
+      },
+      {
+        id: "DeterministicContractWithConstructor",
+        contract: "AbstractContractWithConstructor",
+        abstract: true,
+        deterministic: true,
+        constructorArgs: [
+          "0x0000000000000000000000000000000000000002",
+          "DeterministicContractWithConstructorBarString",
+        ],
+      },
+    ];
+    expect(this.hre.config.upgradeManager.contracts).to.deep.equal(config);
   });
 
   it("Should deploy and upgrade contracts", async function () {
@@ -193,12 +225,55 @@ describe("Basic project setup", function () {
       mockUpgradeableContract.address
     );
 
+    let abstractContractWithConstructor = await this.hre.ethers.getContractAt(
+      [
+        "function fooAddr() public view returns (address)",
+        "function barString() public view returns (string)",
+      ],
+      await upgradeManager.getAbstractContractAddress(
+        "AbstractContractWithConstructor"
+      )
+    );
+
+    expect(await abstractContractWithConstructor.fooAddr()).to.eq(
+      "0x0000000000000000000000000000000000000001"
+    );
+    expect(await abstractContractWithConstructor.barString()).to.eq(
+      "AbstractContractWithConstructorBarString"
+    );
+    let deterministicContractWithConstructor =
+      await this.hre.ethers.getContractAt(
+        [
+          "function fooAddr() public view returns (address)",
+          "function barString() public view returns (string)",
+        ],
+        await upgradeManager.getAbstractContractAddress(
+          "DeterministicContractWithConstructor"
+        )
+      );
+
+    expect(await deterministicContractWithConstructor.fooAddr()).to.eq(
+      "0x0000000000000000000000000000000000000002"
+    );
+    expect(await deterministicContractWithConstructor.barString()).to.eq(
+      "DeterministicContractWithConstructorBarString"
+    );
+
     expect(await getStatusTable(this.hre)).to.deep.eq([
       [
         "AbstractContract",
         "AbstractContract",
         null,
         abstractContractAddress,
+        null,
+        null,
+        null,
+      ],
+      [
+        "AbstractContractWithConstructor",
+        "AbstractContractWithConstructor",
+        null,
+        abstractContractWithConstructor.address,
         null,
         null,
         null,
@@ -226,6 +301,15 @@ describe("Basic project setup", function () {
         "AbstractContract",
         null,
         AbstractContractOneSaltCreate2Address,
+        null,
+        null,
+        null,
+      ],
+      [
+        "DeterministicContractWithConstructor",
+        "AbstractContractWithConstructor",
+        null,
+        AbstractContractWithConstructorCreate2Address,
         null,
         null,
         null,
@@ -274,6 +358,15 @@ describe("Basic project setup", function () {
         "YES",
       ],
       [
+        "AbstractContractWithConstructor",
+        "AbstractContractWithConstructor",
+        null,
+        abstractContractWithConstructor.address,
+        null,
+        null,
+        null,
+      ],
+      [
         "ContractWithNoConfig",
         "MockUpgradeableContract",
         await upgradeManager.adoptedContractAddresses("ContractWithNoConfig"),
@@ -299,6 +392,15 @@ describe("Basic project setup", function () {
         null,
         null,
         "YES",
+      ],
+      [
+        "DeterministicContractWithConstructor",
+        "AbstractContractWithConstructor",
+        null,
+        "0x10eDc0803800238782c483668EECe7053a116560",
+        null,
+        null,
+        null,
       ],
       [
         "MockUpgradeableContract",

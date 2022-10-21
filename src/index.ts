@@ -2,24 +2,25 @@ import { extendConfig, task, types } from "hardhat/config";
 // import { lazyObject } from "hardhat/plugins";
 
 import "@openzeppelin/hardhat-upgrades";
+import { HardhatPluginError } from "hardhat/plugins";
 import {
   HardhatConfig,
   HardhatUserConfig,
   UpgradeManagerContractConfig,
 } from "hardhat/types";
+
 import { deploy } from "./deploy";
+import { diff } from "./diff";
 import { reportProtocolStatus } from "./status";
+import { DeployConfig, DeployConfigInput } from "./types";
 import { upgrade } from "./upgrade";
 
 // import { ExampleHardhatRuntimeEnvironmentField } from "./ExampleHardhatRuntimeEnvironmentField";
 // This import is needed to let the TypeScript compiler know that it should include your type
 // extensions in your npm package's types file.
 
-import { HardhatPluginError } from "hardhat/plugins";
 import "./type-extensions";
-import { DeployConfig, DeployConfigInput } from "./types";
 import { describeNetwork, getDeployAddress, log, PLUGIN_NAME } from "./util";
-import { diff } from "./diff";
 
 extendConfig(
   (config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
@@ -31,6 +32,7 @@ extendConfig(
             contract: config,
             abstract: false,
             deterministic: false,
+            constructorArgs: [],
           };
         } else {
           if (config.deterministic && !config.abstract) {
@@ -39,10 +41,19 @@ extendConfig(
               `Contract ${config.id} is deterministic but not abstract - only both or neither are currently supported`
             );
           }
+
+          if (config.constructorArgs && !config.abstract) {
+            throw new HardhatPluginError(
+              PLUGIN_NAME,
+              `Contract ${config.id} has constructorArgs but is not abstract, this is not supported`
+            );
+          }
+
           return {
             abstract: false,
             deterministic: false,
             contract: config.id,
+            constructorArgs: [],
             ...config,
           };
         }
@@ -145,6 +156,28 @@ function deployTask(
         ...deployConfigInput,
         deployAddress,
       };
+
+      if (deployConfig.forking) {
+        let networkConfig = hre.config.networks[deployConfig.sourceNetwork];
+        if (!("url" in networkConfig) || !networkConfig.url) {
+          throw new HardhatPluginError(
+            PLUGIN_NAME,
+            `Could not find RPC url for ${deployConfig.sourceNetwork} to fork`
+          );
+        }
+
+        await hre.network.provider.request({
+          method: "hardhat_reset",
+          params: [
+            {
+              forking: {
+                jsonRpcUrl: networkConfig.url,
+                // blockNumber: 123
+              },
+            },
+          ],
+        });
+      }
 
       return await cb(deployConfig, params);
     });

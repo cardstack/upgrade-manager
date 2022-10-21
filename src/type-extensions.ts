@@ -13,6 +13,8 @@ declare module "hardhat/types/config" {
     upgradeManager?: UpgradeManagerUserConfig;
   }
 
+  type ConstructorArgs = unknown[];
+
   type UpgradeManagerContractUserConfig =
     | string
     | {
@@ -20,6 +22,7 @@ declare module "hardhat/types/config" {
         contract?: string;
         abstract?: boolean;
         deterministic?: boolean | string;
+        constructorArgs?: ConstructorArgs;
       };
 
   type UpgradeManagerContractConfig = {
@@ -27,6 +30,7 @@ declare module "hardhat/types/config" {
     contract: string;
     abstract: boolean;
     deterministic: boolean | string;
+    constructorArgs: ConstructorArgs;
   };
 
   interface UpgradeManagerUserConfig {

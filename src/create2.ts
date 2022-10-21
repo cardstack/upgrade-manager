@@ -1,7 +1,13 @@
 import { Provider } from "@ethersproject/providers";
 import { BigNumber, Signer } from "ethers";
-import { concat, hexDataLength } from "ethers/lib/utils";
+import {
+  concat,
+  defaultAbiCoder,
+  hexDataLength,
+  ParamType,
+} from "ethers/lib/utils";
 import { HardhatPluginError } from "hardhat/plugins";
+
 import { PLUGIN_NAME } from "./util";
 
 // Source: https://github.com/Arachnid/deterministic-deployment-proxy (https://archive.ph/wip/yQGLQ)
@@ -81,11 +87,13 @@ async function validateCreate2Bytecode(provider: Provider) {
 export async function deployCreate2Contract({
   signer,
   bytecode,
+  constructorArgs = [[], []],
   salt = EMPTY_BYTES_32,
 }: {
   signer: Signer;
   bytecode: string;
   salt?: string;
+  constructorArgs?: [(string | ParamType)[], unknown[]];
 }): Promise<string> {
   if (!signer.provider) {
     throw new HardhatPluginError(
@@ -94,6 +102,10 @@ export async function deployCreate2Contract({
     );
   }
   await validateCreate2Bytecode(signer.provider);
+
+  let encodedConstructorArgs = constructorArgs[0].length
+    ? defaultAbiCoder.encode(constructorArgs[0], constructorArgs[1])
+    : "0x";
 
   if (hexDataLength(salt) != 32) {
     throw new HardhatPluginError(
@@ -104,7 +116,7 @@ export async function deployCreate2Contract({
 
   let txParams = {
     to: CREATE2_PROXY_ADDRESS,
-    data: concat([salt, bytecode]),
+    data: concat([salt, bytecode, encodedConstructorArgs]),
   };
 
   let contractAddress = await signer.call(txParams);

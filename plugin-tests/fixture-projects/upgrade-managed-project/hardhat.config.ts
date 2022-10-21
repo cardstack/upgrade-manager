@@ -36,6 +36,24 @@ const config: HardhatUserConfig = {
         deterministic:
           "0x0000000000000000000000000000000000000000000000000000000000000001",
       },
+      {
+        id: "AbstractContractWithConstructor",
+        abstract: true,
+        constructorArgs: [
+          "0x0000000000000000000000000000000000000001",
+          "AbstractContractWithConstructorBarString",
+        ],
+      },
+      {
+        id: "DeterministicContractWithConstructor",
+        contract: "AbstractContractWithConstructor",
+        abstract: true,
+        deterministic: true,
+        constructorArgs: [
+          "0x0000000000000000000000000000000000000002",
+          "DeterministicContractWithConstructorBarString",
+        ],
+      },
     ],
   },
 };

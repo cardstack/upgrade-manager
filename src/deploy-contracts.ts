@@ -1,12 +1,13 @@
 import { AddressZero } from "@ethersproject/constants";
+import { getProxyAdminFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
+import { Contract } from "ethers";
 import { readJSONSync } from "fs-extra";
 import glob from "glob";
 import { shuffle } from "lodash";
 import difference from "lodash/difference";
-import { ContractAddressMap, DeployConfig, PendingChanges } from "./types";
 
-import { getProxyAdminFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
-import { Contract } from "ethers";
+import { deployCreate2Contract, EMPTY_BYTES_32 } from "./create2";
+import { ContractAddressMap, DeployConfig, PendingChanges } from "./types";
 import {
   deployedCodeMatches,
   deployedImplementationMatches,
@@ -17,7 +18,6 @@ import {
   makeFactory,
   retryAndWaitForNonceIncrease,
 } from "./util";
-import { deployCreate2Contract, EMPTY_BYTES_32 } from "./create2";
 
 export default async function (config: DeployConfig): Promise<{
   unverifiedImpls: string[];
@@ -123,15 +123,22 @@ export default async function (config: DeployConfig): Promise<{
                 } else {
                   salt = EMPTY_BYTES_32;
                 }
+
+                log("Deploying deterministically with salt", salt);
+
                 let address = await deployCreate2Contract({
                   bytecode: factory.bytecode,
                   signer: factory.signer,
                   salt,
+                  constructorArgs: [
+                    factory.interface.deploy.inputs,
+                    contractConfig.constructorArgs,
+                  ],
                 });
 
                 return factory.attach(address);
               } else {
-                let c = await factory.deploy();
+                let c = await factory.deploy(...contractConfig.constructorArgs);
                 return c.deployed();
               }
             }
