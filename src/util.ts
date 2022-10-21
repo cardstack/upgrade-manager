@@ -376,7 +376,10 @@ export async function getOrDeployUpgradeManager(
     let signer = UpgradeManager.signer;
 
     log("getting or deploying proxy admin");
-    const adminAddress = await config.hre.upgrades.deployProxyAdmin(signer);
+    const adminAddress = await retryAndWaitForNonceIncrease(config, () =>
+      config.hre.upgrades.deployProxyAdmin(signer)
+    );
+
     log("admin address", adminAddress);
 
     let proxyAdmin = await getContractAtWithSignature(
