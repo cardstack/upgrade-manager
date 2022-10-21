@@ -1,5 +1,6 @@
 import colors from "colors/safe";
 import {
+  describeNetwork,
   formatEncodedCall,
   getUpgradeManager,
   isSolidityValuesEqual,
@@ -28,7 +29,7 @@ export default async function (
   pendingChanges: PendingChanges,
   addresses: ContractAddressMap
 ): Promise<void> {
-  log(`Configuring contracts on ${deployConfig.targetNetwork}`);
+  log(`Configuring contracts on ${describeNetwork(deployConfig)}`);
 
   let upgradeManager = await getUpgradeManager(deployConfig);
 

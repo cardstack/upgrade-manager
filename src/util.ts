@@ -8,18 +8,19 @@ import { prompt } from "enquirer";
 import { Contract, ContractFactory, Signer } from "ethers";
 import { Interface } from "ethers/lib/utils";
 import { existsSync, readFileSync } from "fs";
-import { readJSONSync, writeJsonSync } from "fs-extra";
+import { mkdirp, readJSONSync, writeJsonSync } from "fs-extra";
 import { HardhatPluginError } from "hardhat/plugins";
 import { Artifact, HardhatNetworkHDAccountsConfig } from "hardhat/types";
 import { difference } from "lodash";
 import lodashIsEqual from "lodash/isEqual";
-import { join, resolve } from "path";
+import { dirname, join, resolve } from "path";
 import TrezorWalletProvider from "trezor-cli-wallet-provider";
 import { getErrorMessageAndStack } from "../shared";
 import { UpgradeManager, UpgradeManager__factory } from "../typechain-types";
 
 import {
   DeployConfig,
+  DeployConfigInput,
   DeployConfigMaybeWithoutDeployAddressYet,
   MetadataKey,
   RetryCallback,
@@ -114,13 +115,7 @@ export async function getSigner(
   config: DeployConfigMaybeWithoutDeployAddressYet,
   address?: string
 ): Promise<Signer> {
-  let {
-    hre,
-    forking,
-    deployAddress,
-    targetNetwork,
-    network: sourceNetwork,
-  } = config;
+  let { hre, forking, deployAddress, sourceNetwork } = config;
 
   if (sourceNetwork == "hardhat") {
     let addressForSigner = address || deployAddress;
@@ -138,7 +133,10 @@ export async function getSigner(
 
   const { chainId } = hre.network.config;
 
-  if (targetNetwork === "localhost" && (!forking || address || deployAddress)) {
+  if (
+    config.network === "localhost" &&
+    (!forking || address || deployAddress)
+  ) {
     let provider = hre.ethers.getDefaultProvider(
       "http://localhost:8545"
     ) as JsonRpcProvider;
@@ -163,7 +161,7 @@ export async function getSigner(
     });
     let trezorProvider = new hre.ethers.providers.Web3Provider(
       walletProvider,
-      targetNetwork
+      config.network
     );
     return trezorProvider.getSigner(address) as unknown as VoidSigner;
   }
@@ -334,9 +332,9 @@ export async function makeFactory(
     factory = await config.hre.ethers.getContractFactory(contractName);
   }
 
-  if (config.targetNetwork === "hardhat") {
+  if (config.network === "hardhat") {
     return factory;
-  } else if (config.targetNetwork === "localhost" && !config.forking) {
+  } else if (config.network === "localhost" && !config.forking) {
     return factory.connect(getHardhatTestWallet(config));
   }
 
@@ -440,7 +438,11 @@ export async function getOrDeployUpgradeManager(
     );
     await upgradeManager.addUpgradeProposer(config.deployAddress);
 
-    writeMetadata(config, "upgradeManagerAddress", upgradeManager.address);
+    await writeMetadata(
+      config,
+      "upgradeManagerAddress",
+      upgradeManager.address
+    );
     return upgradeManager;
   }
 }
@@ -493,11 +495,11 @@ export function readMetadata(
     return readJSONSync(path)[key];
   }
 }
-export function writeMetadata(
+export async function writeMetadata(
   config: DeployConfig,
   key: "upgradeManagerAddress",
   value: string
-): void {
+): Promise<void> {
   let path = metadataPath(config);
 
   let metadata: { [k: string]: string } = {};
@@ -507,12 +509,16 @@ export function writeMetadata(
 
   metadata[key] = value;
 
+  if (!existsSync(dirname(path))) {
+    await mkdirp(dirname(path));
+  }
   writeJsonSync(path, metadata);
 }
 
 function metadataPath(config: DeployConfig): string {
   return resolve(
     config.hre.config.paths.root,
+    "config",
     `upgrade-manager-deploy-data-${config.network}.json`
   );
 }
@@ -577,4 +583,12 @@ export function formatEncodedCallWithInterface(
   );
 
   return `${name}(${formattedArgs.join()}\n)`;
+}
+
+export function describeNetwork(
+  config: DeployConfig | DeployConfigInput
+): string {
+  let fork = config.forking ? `(Forking ${config.forking})` : "";
+
+  return `--network ${config.network}${fork}`;
 }

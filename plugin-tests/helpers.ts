@@ -77,6 +77,7 @@ export async function getFixtureProjectUpgradeManager(
     __dirname,
     "fixture-projects",
     "tmp",
+    "config",
     "upgrade-manager-deploy-data-hardhat.json"
   );
 

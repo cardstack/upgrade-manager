@@ -11,8 +11,8 @@ export interface PendingChanges {
 
 export interface DeployConfigInput {
   hre: HardhatRuntimeEnvironment;
-  network: string;
-  targetNetwork: string;
+  network: string; // convenience for config.hre.network.name
+  sourceNetwork: string;
   deployAddress?: string;
   forking: boolean;
   dryRun: boolean;

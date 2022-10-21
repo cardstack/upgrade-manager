@@ -17,8 +17,8 @@ import { upgrade } from "./upgrade";
 
 import { HardhatPluginError } from "hardhat/plugins";
 import "./type-extensions";
-import { DeployConfig } from "./types";
-import { getDeployAddress, log, PLUGIN_NAME } from "./util";
+import { DeployConfig, DeployConfigInput } from "./types";
+import { describeNetwork, getDeployAddress, log, PLUGIN_NAME } from "./util";
 import { diff } from "./diff";
 
 extendConfig(
@@ -66,7 +66,7 @@ extendConfig(
 
 type TaskParams = {
   deployNetwork: string;
-  fork: boolean;
+  fork: string;
   dryRun: boolean;
   impersonateAddress?: string;
   derivationPath?: string;
@@ -83,19 +83,7 @@ function deployTask(
   cb: (deployConfig: DeployConfig, params: TaskParams) => Promise<unknown>
 ) {
   return task(taskName, taskDescription)
-    .addPositionalParam(
-      "deployNetwork",
-      "The network to deploy to",
-      undefined,
-      types.string,
-      false
-    )
-    .addOptionalParam(
-      "fork",
-      "Run the deploy against a fork of the network",
-      false,
-      types.boolean
-    )
+    .addOptionalParam("fork", "The network to fork", undefined, types.string)
     .addOptionalParam(
       "dryRun",
       "Preview what would happen, without actually writing to the blockchain",
@@ -122,7 +110,6 @@ function deployTask(
     )
     .setAction(async (params, hre) => {
       let {
-        deployNetwork,
         fork,
         dryRun,
         impersonateAddress,
@@ -134,21 +121,15 @@ function deployTask(
       // the destination would be localhost or hardhat depending on if
       // there's a seperate hardhat node running on localhost
 
-      let targetNetwork = fork ? "localhost" : deployNetwork;
-
-      log("Deploying to", targetNetwork);
-
-      if (fork) {
-        log(`(Forking ${deployNetwork})`);
-      }
-
       await hre.run("compile");
 
-      let deployConfig = {
+      let sourceNetwork = fork || hre.network.name;
+
+      let deployConfigInput: DeployConfigInput = {
         hre,
-        network: deployNetwork,
-        targetNetwork,
-        forking: fork,
+        network: hre.network.name,
+        sourceNetwork,
+        forking: !!fork,
         deployAddress: impersonateAddress,
         dryRun,
         derivationPath,
@@ -156,9 +137,16 @@ function deployTask(
         mnemonic: process.env.DEPLOY_MNEMONIC,
       };
 
-      let deployAddress: string = await getDeployAddress(deployConfig);
+      log("Deploying to", describeNetwork(deployConfigInput));
 
-      return await cb({ ...deployConfig, deployAddress }, params);
+      let deployAddress: string = await getDeployAddress(deployConfigInput);
+
+      let deployConfig = {
+        ...deployConfigInput,
+        deployAddress,
+      };
+
+      return await cb(deployConfig, params);
     });
 }
 

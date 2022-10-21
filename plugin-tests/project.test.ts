@@ -105,16 +105,12 @@ describe("Basic project setup", function () {
   it("Should deploy and upgrade contracts", async function () {
     await setupCreate2Proxy(this.hre);
 
-    await expect(
-      runTask(this.hre, "deploy:status", {
-        deployNetwork: "hardhat",
-      })
-    ).to.be.rejectedWith(/Could not find upgrade manager address/);
+    await expect(runTask(this.hre, "deploy:status")).to.be.rejectedWith(
+      /Could not find upgrade manager address/
+    );
 
-    let { stdout } = await runTask(this.hre, "deploy", {
-      deployNetwork: "hardhat",
-    });
-    expect(stdout).to.include("Deploying to hardhat");
+    let { stdout } = await runTask(this.hre, "deploy");
+    expect(stdout).to.include("Deploying to --network hardhat");
     expect(stdout).to.include(
       "Deploying from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     );
@@ -171,7 +167,6 @@ describe("Basic project setup", function () {
     expect(await mockUpgradeableSecondInstance.barAddress()).to.eq(AddressZero);
 
     ({ stdout } = await runTask(this.hre, "deploy:upgrade", {
-      deployNetwork: "hardhat",
       newVersion: "1.0",
       autoConfirm: true,
     }));
@@ -326,7 +321,6 @@ describe("Basic project setup", function () {
     ]);
 
     ({ stdout } = await runTask(this.hre, "deploy:diff:local", {
-      deployNetwork: "hardhat",
       compare: "local",
       contractId: "AbstractContract",
     }));
@@ -388,7 +382,6 @@ async function getStatusTable(
     hre,
     "deploy:status",
     {
-      deployNetwork: "hardhat",
       quiet: true,
     }
   );
