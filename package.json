@@ -28,12 +28,10 @@
     "test": "yarn test:sol && yarn test:plugin",
     "build": "node_modules/.bin/tsc && yarn compile && cp *.sol.json ./dist/",
     "watch": "tsc -w",
-    "prepublishOnly": "yarn clean && npm run build"
+    "prepublishOnly": "yarn clean && yarn build"
   },
   "files": [
-    "dist/src/",
-    "src/",
-    "UpgradeManager.sol.json",
+    "dist",
     "contracts",
     "LICENSE",
     "README.md"
