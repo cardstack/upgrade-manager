@@ -6,6 +6,7 @@ import {
   formatEncodedCall,
   getSourceProvider,
   getUpgradeManager,
+  log,
   PLUGIN_NAME,
 } from "./util";
 
@@ -14,13 +15,20 @@ import { HardhatPluginError } from "hardhat/plugins";
 import { UpgradeManagerContractConfig } from "hardhat/types";
 import { DeployConfig } from "./types";
 
-export async function reportProtocolStatus(config: DeployConfig) {
+export async function reportProtocolStatus(
+  config: DeployConfig,
+  { quiet = false }: { quiet: boolean }
+) {
   let { table, anyChanged } = await getProtocolStatus(config, true);
   console.log(table.toString());
 
   if (anyChanged) {
-    console.log("Exiting with exit code 1 because changes were detected");
-    process.exit(1);
+    if (quiet) {
+      console.log("Changes detected, not exiting due to quiet param");
+    } else {
+      console.log("Exiting with exit code 1 because changes were detected");
+      process.exit(1);
+    }
   } else {
     console.log("No changes detected to deploy");
   }
@@ -132,6 +140,12 @@ export async function getProtocolStatus(
       abstractContract.id
     );
     let contractName = contractConfig.contract;
+    log(
+      "Checking abstract contract implementation",
+      contractName,
+      "at",
+      abstractContractAddress
+    );
     let localBytecodeChanged = (await deployedImplementationMatches(
       config,
       contractName,

@@ -8,7 +8,7 @@ import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
 import { HardhatUpgrades } from "@openzeppelin/hardhat-upgrades";
 import Table from "cli-table3";
-import { ethers, Signer } from "ethers";
+import { ethers } from "ethers";
 import { sortBy } from "lodash";
 import {
   CREATE2_PROXY_DEPLOYMENT_COST,
@@ -22,7 +22,9 @@ import {
   runTask,
   setupCreate2Proxy,
   useEnvironment,
+  writeFixtureProjectFile,
 } from "./helpers";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 declare module "hardhat/types/runtime" {
   interface HardhatRuntimeEnvironment {
@@ -189,14 +191,6 @@ describe("Basic project setup", function () {
 
     expect(await upgradeManager.version()).to.eq("1.0");
 
-    let { result } = await runTask<{ table: Table.Table; anyChanged: boolean }>(
-      this.hre,
-      "deploy:status",
-      {
-        deployNetwork: "hardhat",
-      }
-    );
-
     let abstractContractAddress =
       await upgradeManager.getAbstractContractAddress("AbstractContract");
 
@@ -204,11 +198,7 @@ describe("Basic project setup", function () {
       mockUpgradeableContract.address
     );
 
-    if (!result) {
-      throw "missing result";
-    }
-
-    expect(sortBy(result.table, (r) => (r as string[])[0])).to.deep.eq([
+    expect(await getStatusTable(this.hre)).to.deep.eq([
       [
         "AbstractContract",
         "AbstractContract",
@@ -264,6 +254,82 @@ describe("Basic project setup", function () {
         null,
       ],
     ]);
+
+    writeFixtureProjectFile(
+      "contracts/AbstractContract.sol",
+      `
+      pragma solidity ^0.8.17;
+      pragma abicoder v1;
+
+      contract AbstractContract {
+        function version() external pure returns (string memory) {
+          return "2";
+        }
+      }`
+    );
+
+    expect(await getStatusTable(this.hre)).to.deep.eq([
+      [
+        "AbstractContract",
+        "AbstractContract",
+        null,
+        abstractContractAddress,
+        null,
+        null,
+        "YES",
+      ],
+      [
+        "ContractWithNoConfig",
+        "MockUpgradeableContract",
+        await upgradeManager.adoptedContractAddresses("ContractWithNoConfig"),
+        implAddress,
+        null,
+        null,
+        null,
+      ],
+      [
+        "DeterministicContract",
+        "AbstractContract",
+        null,
+        AbstractContractZeroSaltCreate2Address,
+        null,
+        null,
+        "YES",
+      ],
+      [
+        "DeterministicContractDifferentSalt",
+        "AbstractContract",
+        null,
+        AbstractContractOneSaltCreate2Address,
+        null,
+        null,
+        "YES",
+      ],
+      [
+        "MockUpgradeableContract",
+        "MockUpgradeableContract",
+        mockUpgradeableContract.address,
+        implAddress,
+        null,
+        null,
+        null,
+      ],
+      [
+        "MockUpgradeableSecondInstance",
+        "MockUpgradeableContract",
+        mockUpgradeableSecondInstance.address,
+        implAddress,
+        null,
+        null,
+        null,
+      ],
+    ]);
+
+    ({ stdout } = await runTask(this.hre, "deploy:diff:local", {
+      deployNetwork: "hardhat",
+      compare: "local",
+      contractId: "AbstractContract",
+    }));
   });
 
   describe("CREATE2", function () {
@@ -313,6 +379,25 @@ describe("Basic project setup", function () {
   it("safe");
 });
 
+async function getStatusTable(
+  hre: HardhatRuntimeEnvironment
+): Promise<
+  (Table.HorizontalTableRow | Table.VerticalTableRow | Table.CrossTableRow)[]
+> {
+  let { result } = await runTask<{ table: Table.Table; anyChanged: boolean }>(
+    hre,
+    "deploy:status",
+    {
+      deployNetwork: "hardhat",
+      quiet: true,
+    }
+  );
+
+  if (!result) {
+    throw "missing result";
+  }
+  return sortBy(result.table, (r) => (r as string[])[0]);
+}
 // describe("Unit tests examples", function () {
 //   describe("ExampleHardhatRuntimeEnvironmentField", function () {
 //     describe("sayHello", function () {

@@ -1,5 +1,6 @@
+import cpr from "cpr-promise";
 import { EventEmitter } from "events";
-import { existsSync, readFileSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { readJSONSync } from "fs-extra";
 import { resetHardhatContext } from "hardhat/plugins-testing";
 import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
@@ -10,6 +11,7 @@ import { stdout } from "test-console";
 import { getErrorMessageAndStack } from "../shared";
 import { UpgradeManager } from "../typechain-types";
 
+import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import {
@@ -17,7 +19,6 @@ import {
   CREATE2_PROXY_DEPLOYMENT_SIGNER_ADDRESS,
   deployCreate2Proxy,
 } from "../src/create2";
-import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 chai.use(chaiAsPromised);
 
 declare module "mocha" {
@@ -34,18 +35,7 @@ declare module "test-console" {
   }
 }
 
-function resetFixture(environment = "upgrade-managed-project") {
-  let fixturePath = path.join(__dirname, "fixture-projects", environment);
-
-  rmrf(path.join(fixturePath, ".openzeppelin"));
-  let umMetaPath = path.join(
-    fixturePath,
-    "upgrade-manager-deploy-data-hardhat.json"
-  );
-  if (existsSync(umMetaPath)) {
-    unlinkSync(umMetaPath);
-  }
-}
+const tmpPath = path.join(__dirname, "fixture-projects", "tmp");
 
 export function useEnvironment(fixtureProjectName: string) {
   beforeEach("Loading hardhat environment", async function () {
@@ -54,19 +44,27 @@ export function useEnvironment(fixtureProjectName: string) {
         `Environment ${this.usedEnvironment} already active, cannot activate ${fixtureProjectName}`
       );
     }
-    process.chdir(path.join(__dirname, "fixture-projects", fixtureProjectName));
+
+    rmrf(tmpPath);
+
+    let fixturePath = path.join(
+      __dirname,
+      "fixture-projects",
+      fixtureProjectName
+    );
+
+    await cpr(fixturePath, tmpPath, { a: 1 });
+
+    process.chdir(tmpPath);
 
     this.hre = require("hardhat");
     this.usedEnvironment = fixtureProjectName;
-
-    resetFixture(this.usedEnvironment);
 
     await captureOutput(() => this.hre.run("compile"));
   });
 
   afterEach("Resetting hardhat", function () {
-    resetFixture(this.usedEnvironment);
-
+    rmrf(tmpPath);
     resetHardhatContext();
     this.usedEnvironment = undefined;
   });
@@ -78,7 +76,7 @@ export async function getFixtureProjectUpgradeManager(
   let metadataPath = path.join(
     __dirname,
     "fixture-projects",
-    context.usedEnvironment || "never",
+    "tmp",
     "upgrade-manager-deploy-data-hardhat.json"
   );
 
@@ -97,6 +95,15 @@ export async function getFixtureProjectUpgradeManager(
     artifact.abi,
     upgradeManagerAddress
   )) as UpgradeManager;
+}
+
+export async function writeFixtureProjectFile(
+  relPath: string,
+  contents: string
+) {
+  let fullPath = path.join(__dirname, "fixture-projects", "tmp", relPath);
+
+  writeFileSync(fullPath, contents, { encoding: "utf-8" });
 }
 
 interface ConsoleCapturedResult<T> {

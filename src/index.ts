@@ -19,6 +19,7 @@ import { HardhatPluginError } from "hardhat/plugins";
 import "./type-extensions";
 import { DeployConfig } from "./types";
 import { getDeployAddress, log, PLUGIN_NAME } from "./util";
+import { diff } from "./diff";
 
 extendConfig(
   (config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
@@ -71,6 +72,9 @@ type TaskParams = {
   derivationPath?: string;
   autoConfirm: boolean;
   newVersion: string;
+  quiet: boolean;
+  contractId: string;
+  compare: string;
 };
 
 function deployTask(
@@ -138,6 +142,8 @@ function deployTask(
         log(`(Forking ${deployNetwork})`);
       }
 
+      await hre.run("compile");
+
       let deployConfig = {
         hre,
         network: deployNetwork,
@@ -166,6 +172,11 @@ deployTask(
   "deploy:status",
   "Shows current deploy status",
   reportProtocolStatus
+).addOptionalParam(
+  "quiet",
+  "Don't exit with status 1 if changes are detected, used in tests",
+  false,
+  types.boolean
 );
 
 deployTask(
@@ -179,3 +190,31 @@ deployTask(
   types.string,
   false
 );
+
+deployTask(
+  "deploy:diff:local",
+  "Shows the diff between local contract code and on-chain code",
+  (config: DeployConfig, { contractId, compare }) => {
+    if (compare != "local" && compare != "proposed") {
+      throw new HardhatPluginError(
+        PLUGIN_NAME,
+        "only local or proposed supported for compare argument"
+      );
+    }
+    return diff(config, contractId, compare);
+  }
+)
+  .addPositionalParam(
+    "contractId",
+    "The contract id to compare code",
+    undefined,
+    types.string,
+    false
+  )
+  .addPositionalParam(
+    "compare",
+    "choose whether to compare local changes with active on-chain code, or proposed changes",
+    "local",
+    types.string,
+    true
+  );

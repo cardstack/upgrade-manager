@@ -74,3 +74,5 @@ cache
 coverage.json
 
 UpgradeManager.sol.json
+
+plugin-tests/fixture-projects/tmp/
