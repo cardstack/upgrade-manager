@@ -8,7 +8,7 @@ import {
 } from "ethers/lib/utils";
 import { HardhatPluginError } from "hardhat/plugins";
 
-import { PLUGIN_NAME } from "./util";
+import { log, PLUGIN_NAME } from "./util";
 
 // Source: https://github.com/Arachnid/deterministic-deployment-proxy (https://archive.ph/wip/yQGLQ)
 // Related Reading: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7 (https://archive.ph/wip/o90Bf)
@@ -120,6 +120,13 @@ export async function deployCreate2Contract({
   };
 
   let contractAddress = await signer.call(txParams);
+
+  let existingCode = await signer.provider.getCode(contractAddress);
+
+  if (existingCode != "0x") {
+    log(`Contract already exists at ${contractAddress}`);
+    return contractAddress;
+  }
 
   let tx = await signer.sendTransaction(txParams);
 

@@ -1,7 +1,9 @@
-import { asyncMain } from "./util";
-import { config, artifacts } from "hardhat";
-import { join } from "path";
 import { writeFileSync } from "fs";
+import { join } from "path";
+
+import { config, artifacts } from "hardhat";
+
+import { asyncMain } from "./util";
 
 async function main() {
   await copyArtifact("UpgradeManager");

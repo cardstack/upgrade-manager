@@ -1,6 +1,4 @@
 import { extendConfig, task, types } from "hardhat/config";
-// import { lazyObject } from "hardhat/plugins";
-
 import "@openzeppelin/hardhat-upgrades";
 import { HardhatPluginError } from "hardhat/plugins";
 import {
@@ -10,11 +8,13 @@ import {
 } from "hardhat/types";
 
 import { deploy } from "./deploy";
-import { diff } from "./diff";
 import { reportProtocolStatus } from "./status";
 import { DeployConfig, DeployConfigInput } from "./types";
-import { upgrade } from "./upgrade";
+// eslint-disable-next-line import/order
+import { upgrade } from "./upgrade"; // lint rule is bugged for this line for some reason
 
+// import { diff } from "./diff";
+// import { lazyObject } from "hardhat/plugins";
 // import { ExampleHardhatRuntimeEnvironmentField } from "./ExampleHardhatRuntimeEnvironmentField";
 // This import is needed to let the TypeScript compiler know that it should include your type
 // extensions in your npm package's types file.
@@ -157,7 +157,8 @@ function deployTask(
         deployAddress,
       };
 
-      if (deployConfig.forking) {
+      // Don't reset localhost, assume it's a node run with `npx hardhat node --fork $RPC_URL`
+      if (deployConfig.forking && hre.network.name != "localhost") {
         let networkConfig = hre.config.networks[deployConfig.sourceNetwork];
         if (!("url" in networkConfig) || !networkConfig.url) {
           throw new HardhatPluginError(
@@ -172,6 +173,7 @@ function deployTask(
             {
               forking: {
                 jsonRpcUrl: networkConfig.url,
+                // TODO
                 // blockNumber: 123
               },
             },
@@ -222,7 +224,8 @@ deployTask(
         "only local or proposed supported for compare argument"
       );
     }
-    return diff(config, contractId, compare);
+    throw new Error("TODO");
+    // return diff(config, contractId, compare);
   }
 )
   .addPositionalParam(

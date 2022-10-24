@@ -1,3 +1,4 @@
+import { DeployConfig } from "./types";
 import {
   getUpgradeManager,
   log,
@@ -5,8 +6,6 @@ import {
   formatEncodedCall,
   confirmOrAutoconfirm,
 } from "./util";
-
-import { DeployConfig } from "./types";
 
 export async function upgrade(config: DeployConfig, newVersion: string) {
   log("Sending transactions from", config.deployAddress);

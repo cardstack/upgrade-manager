@@ -1,7 +1,6 @@
+import { AddressZero } from "@ethersproject/constants";
 import colors from "colors/safe";
 import { Contract } from "ethers";
-
-import { AddressZero } from "@ethersproject/constants";
 
 import {
   ContractAddressMap,
@@ -9,7 +8,6 @@ import {
   PendingChanges,
   RetryCallback,
 } from "./types";
-
 import { getUpgradeManager, log, retryAndWaitForNonceIncrease } from "./util";
 
 export default async function (

@@ -422,10 +422,10 @@ describe("Basic project setup", function () {
       ],
     ]);
 
-    ({ stdout } = await runTask(this.hre, "deploy:diff:local", {
-      compare: "local",
-      contractId: "AbstractContract",
-    }));
+    // ({ stdout } = await runTask(this.hre, "deploy:diff:local", {
+    //   compare: "local",
+    //   contractId: "AbstractContract",
+    // }));
   });
 
   describe("CREATE2", function () {

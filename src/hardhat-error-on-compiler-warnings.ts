@@ -1,7 +1,6 @@
-import { subtask } from "hardhat/config";
 import chalk from "chalk";
-
 import { TASK_COMPILE_SOLIDITY_LOG_COMPILATION_ERRORS } from "hardhat/builtin-tasks/task-names";
+import { subtask } from "hardhat/config";
 
 subtask(
   TASK_COMPILE_SOLIDITY_LOG_COMPILATION_ERRORS,

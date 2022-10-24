@@ -1,5 +1,9 @@
+import { AddressZero } from "@ethersproject/constants";
 import Table from "cli-table3";
+import { HardhatPluginError } from "hardhat/plugins";
+import { UpgradeManagerContractConfig } from "hardhat/types";
 
+import { DeployConfig } from "./types";
 import {
   deployedCodeMatches,
   deployedImplementationMatches,
@@ -9,11 +13,6 @@ import {
   log,
   PLUGIN_NAME,
 } from "./util";
-
-import { AddressZero } from "@ethersproject/constants";
-import { HardhatPluginError } from "hardhat/plugins";
-import { UpgradeManagerContractConfig } from "hardhat/types";
-import { DeployConfig } from "./types";
 
 export async function reportProtocolStatus(
   config: DeployConfig,

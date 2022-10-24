@@ -1,11 +1,13 @@
+import { existsSync, unlinkSync } from "fs";
+import { join } from "path";
+
 import { AddressZero } from "@ethersproject/constants";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { Contract } from "ethers";
 import { solidityKeccak256 } from "ethers/lib/utils";
-import { existsSync, unlinkSync } from "fs";
 import { ethers, upgrades } from "hardhat";
-import { join } from "path";
+
 import {
   AbstractContractV1,
   AbstractContractV1__factory,
@@ -267,9 +269,7 @@ describe("UpgradeManager", () => {
         instance.address,
         proxyAdmin.address
       )
-    ).to.be.rejectedWith(
-      "Call to determine proxy admin ownership of proxy failed"
-    );
+    ).to.be.rejectedWith("Couldn't verify ownership");
   });
 
   it("fails to adopt the contract if it is not the owner of the proxy admin", async () => {
@@ -330,12 +330,12 @@ describe("UpgradeManager", () => {
       deployAndAdoptContract({
         id: "Collision",
       })
-    ).to.be.rejectedWith("Contract id already registered");
+    ).to.be.rejectedWith("id already registered");
     await expect(
       deployAndAdoptContract({
         id: "",
       })
-    ).to.be.rejectedWith("Contract id must not be empty");
+    ).to.be.rejectedWith("id required");
   });
 
   it("allows a proposer to propose an upgrade", async () => {
@@ -352,7 +352,7 @@ describe("UpgradeManager", () => {
       ).proposeUpgrade("UpgradeableContract", newImplementationAddress, {
         from: randomEOA,
       })
-    ).to.be.rejectedWith("Caller is not proposer");
+    ).to.be.rejectedWith("Caller not proposer");
 
     upgradeManager = await contractWithSigner(upgradeManager, proposer);
 
@@ -563,7 +563,7 @@ describe("UpgradeManager", () => {
 
     // only proposers can withdraw changes
     await expect(upgradeManager.withdrawChanges("C1")).to.be.rejectedWith(
-      "Caller is not proposer"
+      "Caller not proposer"
     );
 
     expect(await upgradeManager.nonce()).to.eq(3);
@@ -616,7 +616,7 @@ describe("UpgradeManager", () => {
   it("requires a version number to be present to upgrade", async () => {
     await deployAndAdoptContract();
     await expect(upgradeManager.upgrade("", "0")).to.be.rejectedWith(
-      "New version must be set"
+      "New version required"
     );
   });
   it("allows calling arbitrary functions as owner", async () => {
@@ -721,7 +721,7 @@ describe("UpgradeManager", () => {
     ]);
 
     await expect(upgradeManager.upgrade("1.0.2", "2")).to.be.rejectedWith(
-      "Invalid nonce"
+      "Wrong nonce"
     );
     await upgradeManager.upgrade("1.0.1", "3");
 
@@ -796,7 +796,7 @@ describe("UpgradeManager", () => {
           UpgradeableContractV2
         )) as string
       )
-    ).to.be.rejectedWith("Upgrade already proposed, withdraw first");
+    ).to.be.rejectedWith("Upgrade already proposed");
     await expect(
       upgradeManager.proposeUpgradeAndCall(
         "C2",
@@ -806,22 +806,22 @@ describe("UpgradeManager", () => {
         )) as string,
         encodeWithSignature("setup(string)", "bar")
       )
-    ).to.be.rejectedWith("Upgrade already proposed, withdraw first");
+    ).to.be.rejectedWith("Upgrade already proposed");
     await expect(
       upgradeManager.proposeCall(
         "C3",
         encodeWithSignature("setup(string)", "baz")
       )
-    ).to.be.rejectedWith("Upgrade already proposed, withdraw first");
+    ).to.be.rejectedWith("Upgrade already proposed");
   });
 
   it("has safety rails around Ownable module to prevent footguns", async () => {
     await expect(
       upgradeManager.transferOwnership(AddressZero)
-    ).to.be.rejectedWith("Ownable: new owner is the zero address");
+    ).to.be.rejectedWith("new owner is zero address");
     await expect(
       upgradeManager.transferOwnership(upgradeManager.address)
-    ).to.be.rejectedWith("Ownable: new owner is this contract");
+    ).to.be.rejectedWith("new owner is this contract");
     await expect(upgradeManager.renounceOwnership()).to.be.rejectedWith(
       "Ownable: cannot renounce ownership"
     );
@@ -896,7 +896,7 @@ describe("UpgradeManager", () => {
         instance.address,
         proxyAdmin2.address
       )
-    ).to.be.rejectedWith("Cannot change proxy admin for owned contract");
+    ).to.be.rejectedWith("Can't change ProxyAdmin before disown");
 
     // Disown the contract
     await expect(upgradeManager.disown("OwnedContract", otherOwner))
@@ -992,7 +992,7 @@ describe("UpgradeManager", () => {
         instance.address,
         proxyAdmin.address
       )
-    ).to.be.rejectedWith("Proxy already adopted with a different contract id");
+    ).to.be.rejectedWith("Proxy already adopted with other id");
   });
 
   it("validates the proposed address", async () => {
@@ -1005,7 +1005,7 @@ describe("UpgradeManager", () => {
 
     await expect(
       upgradeManager.proposeUpgrade("C1", implementationAddress)
-    ).to.be.rejectedWith("Implementation address unchanged");
+    ).to.be.rejectedWith("Implementation unchanged");
 
     await expect(
       upgradeManager.proposeUpgradeAndCall(
@@ -1013,18 +1013,18 @@ describe("UpgradeManager", () => {
         implementationAddress,
         encodeWithSignature("setup(string)", "baz")
       )
-    ).to.be.rejectedWith("Implementation address unchanged");
+    ).to.be.rejectedWith("Implementation unchanged");
 
     await expect(
       upgradeManager.proposeUpgrade("C1", randomEOA)
-    ).to.be.rejectedWith("Implementation address is not a contract");
+    ).to.be.rejectedWith("Implementation not a contract");
     await expect(
       upgradeManager.proposeUpgradeAndCall(
         "C1",
         randomEOA,
         encodeWithSignature("setup(string)", "baz")
       )
-    ).to.be.rejectedWith("Implementation address is not a contract");
+    ).to.be.rejectedWith("Implementation not a contract");
   });
 
   it("should be possible to self upgrade if it ends up being the owner of its own proxyadmin", async () => {
@@ -1070,10 +1070,10 @@ describe("UpgradeManager", () => {
     ).to.be.rejectedWith("Ownable: caller is not the owner");
     await expect(
       upgradeManager.selfUpgrade(AddressZero, upgradeManagerProxyAdminAddress)
-    ).to.be.rejectedWith("Implementation address is not a contract");
+    ).to.be.rejectedWith("Implementation not a contract");
     await expect(
       upgradeManager.selfUpgrade(randomEOA, upgradeManagerProxyAdminAddress)
-    ).to.be.rejectedWith("Implementation address is not a contract");
+    ).to.be.rejectedWith("Implementation not a contract");
     await upgradeManager.selfUpgrade(
       newImplementation.address,
       upgradeManagerProxyAdminAddress
@@ -1095,7 +1095,7 @@ describe("UpgradeManager", () => {
 
     await expect(
       deployAndAdoptContract({ id: "last contract" })
-    ).to.be.rejectedWith("Too many contracts adopted");
+    ).to.be.rejectedWith("Too many contracts");
   });
 
   describe("Proposing abstract contract", async () => {
@@ -1259,7 +1259,7 @@ describe("UpgradeManager", () => {
     it("only allows proposers to call", async () => {
       await expect(
         upgradeManager.proposeAbstract("AbstractContract", abstract1.address)
-      ).to.be.rejectedWith("Caller is not proposer");
+      ).to.be.rejectedWith("Caller not proposer");
     });
 
     it("last proposed address for abstract contract wins", async () => {
@@ -1285,7 +1285,7 @@ describe("UpgradeManager", () => {
       );
       await expect(
         upgradeManager.withdrawAllAbstractProposals()
-      ).to.be.rejectedWith("Caller is not proposer");
+      ).to.be.rejectedWith("Caller not proposer");
       await expect(
         upgradeManagerAsProposer.withdrawAllAbstractProposals()
       ).to.emit(upgradeManagerAsProposer, "AbstractProposalsWithdrawn");
@@ -1297,7 +1297,7 @@ describe("UpgradeManager", () => {
     it("requires a contract address", async () => {
       await expect(
         upgradeManagerAsProposer.proposeAbstract("AbstractContract", proposer)
-      ).to.be.rejectedWith("Proposed address is not a contract");
+      ).to.be.rejectedWith("Address is not a contract");
     });
   });
 

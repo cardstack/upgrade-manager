@@ -1,4 +1,18 @@
+import { existsSync } from "fs";
+import { join } from "path";
+
 import colors from "colors/safe";
+import { Contract } from "ethers";
+import { HardhatPluginError } from "hardhat/plugins";
+
+import { UpgradeManager } from "../typechain-types";
+
+import {
+  ConfigFunction,
+  ContractAddressMap,
+  DeployConfig,
+  PendingChanges,
+} from "./types";
 import {
   describeNetwork,
   formatEncodedCall,
@@ -10,18 +24,6 @@ import {
   retry,
   retryAndWaitForNonceIncrease,
 } from "./util";
-
-import { Contract } from "ethers";
-import { existsSync } from "fs";
-import { HardhatPluginError } from "hardhat/plugins";
-import { join } from "path";
-import { UpgradeManager } from "../typechain-types";
-import {
-  ConfigFunction,
-  ContractAddressMap,
-  DeployConfig,
-  PendingChanges,
-} from "./types";
 
 type LogFunc = typeof log;
 export default async function (

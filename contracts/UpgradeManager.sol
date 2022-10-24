@@ -28,6 +28,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
 
   uint256 public constant CONTRACT_VERSION = 1;
   uint256 public constant MAXIMUM_CONTRACTS = 100;
+  string public constant NOT_CONTRACT_ERROR = "Implementation not a contract";
 
   uint256 public nonce;
   string public version;
@@ -179,7 +180,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     require(
       _contractAddress == address(0) ||
         AddressUpgradeable.isContract(_contractAddress),
-      "Proposed address is not a contract"
+      "Address is not a contract"
     );
     proposedAbstractContracts.push(
       AbstractContract({id: _contractId, contractAddress: _contractAddress})
@@ -197,22 +198,19 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     address _proxyAddress,
     address _proxyAdminAddress
   ) external onlyOwner {
-    require(proxies.length() < MAXIMUM_CONTRACTS, "Too many contracts adopted");
+    require(proxies.length() < MAXIMUM_CONTRACTS, "Too many contracts");
 
     _verifyOwnership(_proxyAddress, _proxyAdminAddress);
 
     address existingProxyAddress = adoptedContractAddresses[_contractId];
-    require(
-      existingProxyAddress == address(0),
-      "Contract id already registered"
-    );
+    require(existingProxyAddress == address(0), "id already registered");
 
     require(
       !_isProxyRegisted(_proxyAddress),
-      "Proxy already adopted with a different contract id"
+      "Proxy already adopted with other id"
     );
 
-    require(bytes(_contractId).length > 0, "Contract id must not be empty");
+    require(bytes(_contractId).length > 0, "id required");
 
     proxies.add(_proxyAddress);
     adoptedContractAddresses[_contractId] = _proxyAddress;
@@ -239,8 +237,8 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     onlyOwner
     nonReentrant
   {
-    require(bytes(_newVersion).length > 0, "New version must be set");
-    require(_nonce == nonce, "Invalid nonce");
+    require(bytes(_newVersion).length > 0, "New version required");
+    require(_nonce == nonce, "Wrong nonce");
 
     // Upgradeable contracts
     uint256 count = proxiesWithPendingChanges.length();
@@ -303,7 +301,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   ) external onlyOwner {
     require(
       !_isProxyRegisted(_proxyAddress),
-      "Cannot change proxy admin for owned contract"
+      "Can't change ProxyAdmin before disown"
     );
     IProxyAdmin(_proxyAdminAddress).changeProxyAdmin(_proxyAddress, _newAdmin);
   }
@@ -320,8 +318,8 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   // just in case of accidentally trying to make the contract own itself
   // e.g. in a script for example
   function transferOwnership(address newOwner) public override onlyOwner {
-    require(newOwner != address(0), "Ownable: new owner is the zero address");
-    require(newOwner != address(this), "Ownable: new owner is this contract");
+    require(newOwner != address(0), "new owner is zero address");
+    require(newOwner != address(this), "new owner is this contract");
     _transferOwnership(newOwner);
   }
 
@@ -337,7 +335,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     // is just a last line of defence against footgun
     require(
       AddressUpgradeable.isContract(_newImplementation),
-      "Implementation address is not a contract"
+      NOT_CONTRACT_ERROR
     );
 
     IProxyAdmin(_proxyAdminAddress).upgrade(address(this), _newImplementation);
@@ -374,7 +372,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   }
 
   function _checkProposer() internal view virtual {
-    require(upgradeProposers.contains(msg.sender), "Caller is not proposer");
+    require(upgradeProposers.contains(msg.sender), "Caller not proposer");
   }
 
   function _verifyOwnership(address _proxyAddress, address _proxyAdminAddress)
@@ -398,14 +396,11 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
       abi.encodeWithSignature("getProxyAdmin(address)", _proxyAddress)
     );
 
-    require(success, "Call to determine proxy admin ownership of proxy failed");
+    require(success, "Couldn't verify ownership");
 
     address returnedAddress = abi.decode(returnData, (address));
 
-    require(
-      returnedAddress == _proxyAdminAddress,
-      "Proxy admin is not admin of this proxy"
-    );
+    require(returnedAddress == _proxyAdminAddress, "Proxy admin not owner");
   }
 
   function _addUpgradeProposer(address proposerAddress) private {
@@ -448,7 +443,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
 
     require(
       !proxiesWithPendingChanges.contains(proxyAddress),
-      "Upgrade already proposed, withdraw first"
+      "Upgrade already proposed"
     );
 
     AdoptedContract storage adoptedContract = adoptedContractsByProxyAddress[
@@ -460,7 +455,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
 
     require(
       currentImplementationAddress != _implementationAddress,
-      "Implementation address unchanged"
+      "Implementation unchanged"
     );
 
     if (_implementationAddress != address(0)) {
@@ -468,7 +463,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
       // is just a last line of defence against footgun
       require(
         AddressUpgradeable.isContract(_implementationAddress),
-        "Implementation address is not a contract"
+        NOT_CONTRACT_ERROR
       );
     }
 
