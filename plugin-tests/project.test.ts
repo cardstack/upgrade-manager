@@ -7,6 +7,7 @@ import { HardhatUpgrades } from "@openzeppelin/hardhat-upgrades";
 import { expect } from "chai";
 import Table from "cli-table3";
 import { ethers } from "ethers";
+import { getAddress } from "ethers/lib/utils";
 import {
   HardhatRuntimeEnvironment,
   UpgradeManagerContractConfig,
@@ -18,6 +19,7 @@ import {
   CREATE2_PROXY_DEPLOYMENT_SIGNER_ADDRESS,
   deployCreate2Contract,
   deployCreate2Proxy,
+  getCreate2Address,
 } from "../src/create2";
 
 import "../src/type-extensions";
@@ -440,14 +442,72 @@ describe("Basic project setup", function () {
       let factory = await this.hre.ethers.getContractFactory(
         "AbstractContract"
       );
-      factory.bytecode;
 
       let contractAddress = await deployCreate2Contract({
         signer: this.hre.ethers.provider.getSigner(),
         bytecode: factory.bytecode,
       });
 
+      expect(getAddress(contractAddress)).to.eq(
+        AbstractContractZeroSaltCreate2Address
+      );
+
       expect(await factory.attach(contractAddress).version()).to.eq("1");
+      let contractAddress2 = await deployCreate2Contract({
+        signer: this.hre.ethers.provider.getSigner(),
+        bytecode: factory.bytecode,
+        salt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      });
+
+      expect(getAddress(contractAddress2)).to.eq(
+        AbstractContractOneSaltCreate2Address
+      );
+
+      let constructorArgsFactory = await this.hre.ethers.getContractFactory(
+        "AbstractContractWithConstructor"
+      );
+
+      let expectedAddress = getCreate2Address({
+        bytecode: constructorArgsFactory.bytecode,
+        constructorArgs: [
+          ["address", "string"],
+          [
+            "0x0000000000000000000000000000000000000002",
+            "DeterministicContractWithConstructorBarString",
+          ],
+        ],
+        salt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      });
+
+      let contractAddress3 = await deployCreate2Contract({
+        signer: this.hre.ethers.provider.getSigner(),
+        bytecode: constructorArgsFactory.bytecode,
+        constructorArgs: [
+          ["address", "string"],
+          [
+            "0x0000000000000000000000000000000000000002",
+            "DeterministicContractWithConstructorBarString",
+          ],
+        ],
+        salt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      });
+
+      expect(contractAddress3).to.eq(expectedAddress);
+
+      // Check it is idempotent and doesn't error on attempted redeploy
+      contractAddress3 = await deployCreate2Contract({
+        signer: this.hre.ethers.provider.getSigner(),
+        bytecode: constructorArgsFactory.bytecode,
+        constructorArgs: [
+          ["address", "string"],
+          [
+            "0x0000000000000000000000000000000000000002",
+            "DeterministicContractWithConstructorBarString",
+          ],
+        ],
+        salt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      });
+      expect(contractAddress3).to.eq(expectedAddress);
     });
   });
 

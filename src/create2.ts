@@ -3,7 +3,10 @@ import { BigNumber, Signer } from "ethers";
 import {
   concat,
   defaultAbiCoder,
+  getAddress,
+  getCreate2Address as ethersGetCreate2Address,
   hexDataLength,
+  keccak256,
   ParamType,
 } from "ethers/lib/utils";
 import { HardhatPluginError } from "hardhat/plugins";
@@ -84,17 +87,30 @@ async function validateCreate2Bytecode(provider: Provider) {
   }
 }
 
+export type ContractInfo = {
+  bytecode: string;
+  salt?: string;
+  constructorArgs?: [(string | ParamType)[], unknown[]];
+};
+
+export function getCreate2Address({
+  bytecode,
+  constructorArgs = [[], []],
+  salt = EMPTY_BYTES_32,
+}: ContractInfo): string {
+  let encodedConstructorArgs = encodeConstructorArgs(constructorArgs);
+
+  let initCodeHash = keccak256(concat([bytecode, encodedConstructorArgs]));
+
+  return ethersGetCreate2Address(CREATE2_PROXY_ADDRESS, salt, initCodeHash);
+}
+
 export async function deployCreate2Contract({
   signer,
   bytecode,
   constructorArgs = [[], []],
   salt = EMPTY_BYTES_32,
-}: {
-  signer: Signer;
-  bytecode: string;
-  salt?: string;
-  constructorArgs?: [(string | ParamType)[], unknown[]];
-}): Promise<string> {
+}: ContractInfo & { signer: Signer }): Promise<string> {
   if (!signer.provider) {
     throw new HardhatPluginError(
       PLUGIN_NAME,
@@ -103,15 +119,22 @@ export async function deployCreate2Contract({
   }
   await validateCreate2Bytecode(signer.provider);
 
-  let encodedConstructorArgs = constructorArgs[0].length
-    ? defaultAbiCoder.encode(constructorArgs[0], constructorArgs[1])
-    : "0x";
-
   if (hexDataLength(salt) != 32) {
     throw new HardhatPluginError(
       PLUGIN_NAME,
-      `Salt must be a valid 0x prefixed 32 byte hex string, but it was ${salt}`
+      `Salt must be a valid 0x prefixed 32 byte hex string, but it was "${salt}" of length ${hexDataLength(
+        salt
+      )}`
     );
+  }
+
+  let expectedAddress = getCreate2Address({ bytecode, salt, constructorArgs });
+
+  let encodedConstructorArgs = encodeConstructorArgs(constructorArgs);
+  let existingCode = await signer.provider.getCode(expectedAddress);
+  if (existingCode != "0x") {
+    log(`Contract already exists at ${expectedAddress}`);
+    return expectedAddress;
   }
 
   let txParams = {
@@ -119,13 +142,12 @@ export async function deployCreate2Contract({
     data: concat([salt, bytecode, encodedConstructorArgs]),
   };
 
-  let contractAddress = await signer.call(txParams);
+  let contractAddress = getAddress(await signer.call(txParams));
 
-  let existingCode = await signer.provider.getCode(contractAddress);
-
-  if (existingCode != "0x") {
-    log(`Contract already exists at ${contractAddress}`);
-    return contractAddress;
+  if (contractAddress != expectedAddress) {
+    throw new Error(
+      `The contract would not be deployed at the expected CREATE2 address ${expectedAddress} but instead ${contractAddress}`
+    );
   }
 
   let tx = await signer.sendTransaction(txParams);
@@ -133,4 +155,12 @@ export async function deployCreate2Contract({
   await tx.wait();
 
   return contractAddress;
+}
+
+function encodeConstructorArgs(
+  constructorArgs: [(string | ParamType)[], unknown[]]
+) {
+  return constructorArgs[0].length
+    ? defaultAbiCoder.encode(constructorArgs[0], constructorArgs[1])
+    : "0x";
 }

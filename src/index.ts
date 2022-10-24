@@ -132,6 +132,18 @@ function deployTask(
       // the destination would be localhost or hardhat depending on if
       // there's a seperate hardhat node running on localhost
 
+      if (fork && !impersonateAddress) {
+        throw new HardhatPluginError(
+          PLUGIN_NAME,
+          "--impersonate-address param is required when forking"
+        );
+      } else if (!fork && impersonateAddress) {
+        throw new HardhatPluginError(
+          PLUGIN_NAME,
+          "--impersonate-address only makes sense when forking"
+        );
+      }
+
       await hre.run("compile");
 
       let sourceNetwork = fork || hre.network.name;
@@ -217,6 +229,7 @@ deployTask(
 deployTask(
   "deploy:diff:local",
   "Shows the diff between local contract code and on-chain code",
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   (config: DeployConfig, { contractId, compare }) => {
     if (compare != "local" && compare != "proposed") {
       throw new HardhatPluginError(
