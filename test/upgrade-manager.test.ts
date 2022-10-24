@@ -1106,6 +1106,7 @@ describe("UpgradeManager", () => {
     });
 
     it("allows a proposer to propose an abstract contract address", async () => {
+      expect(await upgradeManager.nonce()).to.eq(0);
       expect(
         await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(AddressZero);
@@ -1126,6 +1127,7 @@ describe("UpgradeManager", () => {
       )
         .to.emit(upgradeManagerAsProposer, "AbstractProposed")
         .withArgs("AbstractContract", abstract1.address);
+      expect(await upgradeManager.nonce()).to.eq(1);
 
       expect(await upgradeManager.getProposedAbstractContractsLength()).to.eq(
         1
@@ -1147,6 +1149,8 @@ describe("UpgradeManager", () => {
         abstract1.address
       );
 
+      expect(await upgradeManager.nonce()).to.eq(2);
+
       let prop2 = await upgradeManager.proposedAbstractContracts(1);
       expect(prop2.id).to.eq("AbstractContractSameImplementationDifferentName");
       expect(prop2.contractAddress).to.eq(abstract1.address);
@@ -1166,6 +1170,8 @@ describe("UpgradeManager", () => {
       );
 
       await upgradeManager.upgrade("1", await upgradeManager.nonce());
+      expect(await upgradeManager.nonce()).to.eq(3);
+
       expect(
         await upgradeManager.getAbstractContractAddresses()
       ).to.have.members([abstract1.address, abstract1.address]);
@@ -1207,10 +1213,13 @@ describe("UpgradeManager", () => {
         "AbstractContract",
         abstract2.address
       );
+      expect(await upgradeManager.nonce()).to.eq(4);
+
       expect(
         await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(abstract1.address);
       await upgradeManager.upgrade("2", await upgradeManager.nonce());
+      expect(await upgradeManager.nonce()).to.eq(5);
       expect(
         await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(abstract2.address);
@@ -1231,7 +1240,10 @@ describe("UpgradeManager", () => {
         "AbstractContract",
         AddressZero
       );
+      expect(await upgradeManager.nonce()).to.eq(6);
+
       await upgradeManager.upgrade("3", await upgradeManager.nonce());
+      expect(await upgradeManager.nonce()).to.eq(7);
       expect(
         await upgradeManager.getAbstractContractAddress("AbstractContract")
       ).to.eq(AddressZero);
@@ -1279,16 +1291,20 @@ describe("UpgradeManager", () => {
     });
 
     it("allows to withdraw all abstract contract proposals", async () => {
+      expect(await upgradeManager.nonce()).to.eq(0);
+
       await upgradeManagerAsProposer.proposeAbstract(
         "AbstractContract",
         abstract1.address
       );
+      expect(await upgradeManager.nonce()).to.eq(1);
       await expect(
         upgradeManager.withdrawAllAbstractProposals()
       ).to.be.rejectedWith("Caller not proposer");
       await expect(
         upgradeManagerAsProposer.withdrawAllAbstractProposals()
       ).to.emit(upgradeManagerAsProposer, "AbstractProposalsWithdrawn");
+      expect(await upgradeManager.nonce()).to.eq(2);
       await upgradeManager.upgrade("1", await upgradeManager.nonce());
       expect(
         await upgradeManager.getAbstractContractAddress("AbstractContract")

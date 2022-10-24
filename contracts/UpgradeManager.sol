@@ -185,11 +185,13 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     proposedAbstractContracts.push(
       AbstractContract({id: _contractId, contractAddress: _contractAddress})
     );
+    nonce++;
     emit AbstractProposed(_contractId, _contractAddress);
   }
 
   function withdrawAllAbstractProposals() external onlyProposers {
     delete proposedAbstractContracts;
+    nonce++;
     emit AbstractProposalsWithdrawn();
   }
 
