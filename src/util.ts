@@ -235,9 +235,6 @@ export async function deployedCodeMatches(
     await deployConfig.hre.upgrades.erc1967.getImplementationAddress(
       proxyAddress
     );
-  log(
-    `Checking implementation of ${contractName}@${proxyAddress} (curent implementation: ${currentImplementationAddress})`
-  );
 
   return await deployedImplementationMatches(
     deployConfig,
@@ -262,13 +259,6 @@ export async function deployedImplementationMatches(
 
   let deployedCodeHash = hashBytecodeWithoutMetadata(deployedCode);
   let localCodeHash = hashBytecodeWithoutMetadata(artifact.deployedBytecode);
-
-  log(
-    `On chain code hash at ${implementationAddress} (without metadata): ${deployedCodeHash}`
-  );
-
-  log(`Local bytecode hash (without metadata): ${localCodeHash}`);
-
   return deployedCodeHash === localCodeHash;
 }
 
