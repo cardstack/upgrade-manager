@@ -65,8 +65,9 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
   }
 
   modifier onlyOwnerOrProposers() {
-    _checkOwner();
-    _checkProposer();
+    if (msg.sender != owner()) {
+      _checkProposer();
+    }
     _;
   }
 
@@ -199,7 +200,7 @@ contract UpgradeManager is Ownable, ReentrancyGuardUpgradeable {
     string calldata _contractId,
     address _proxyAddress,
     address _proxyAdminAddress
-  ) external onlyOwner {
+  ) external onlyOwnerOrProposers {
     require(proxies.length() < MAXIMUM_CONTRACTS, "Too many contracts");
 
     _verifyOwnership(_proxyAddress, _proxyAdminAddress);

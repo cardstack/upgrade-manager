@@ -256,6 +256,30 @@ describe("UpgradeManager", () => {
     );
   });
 
+  it("Can adopt as proposer", async () => {
+    let { instance, proxyAdmin } = await deployV1();
+    await transferProxyAdminOwnership(proxyAdmin, upgradeManager.address);
+    await instance.transferOwnership(upgradeManager.address);
+    let upgradeManagerAsRandom = await contractWithSigner(
+      upgradeManager,
+      randomEOA
+    );
+
+    await expect(
+      upgradeManagerAsRandom.adoptContract(
+        "UpgradeableContractV1",
+        instance.address,
+        proxyAdmin.address
+      )
+    ).to.be.rejectedWith("Caller not proposer");
+
+    await upgradeManagerAsProposer.adoptContract(
+      "UpgradeableContractV1",
+      instance.address,
+      proxyAdmin.address
+    );
+  });
+
   it("fails to adopt if it's not a proxy", async () => {
     let { proxyAdmin } = await deployV1();
     await transferProxyAdminOwnership(proxyAdmin, upgradeManager.address);
