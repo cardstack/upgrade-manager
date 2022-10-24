@@ -1,3 +1,4 @@
+import { reportProtocolStatus } from "./status";
 import { DeployConfig } from "./types";
 import {
   getUpgradeManager,
@@ -10,8 +11,7 @@ import {
 export async function upgrade(config: DeployConfig, newVersion: string) {
   log("Sending transactions from", config.deployAddress);
 
-  // TODO: report status
-  // console.log((await reportProtocolStatus(network)).table.toString());
+  await reportProtocolStatus(config, { quiet: true });
 
   // TODO: dry run
 
@@ -43,7 +43,7 @@ export async function upgrade(config: DeployConfig, newVersion: string) {
     log("Success");
   } else {
     log(
-      `Owner of the upgrade manager is not the active deploy address, attempting safe transaction`
+      `Owner of the upgrade manager (${upgradeManagerOwner}) is not the active deploy address (${config.deployAddress}, attempting safe transaction`
     );
 
     let data = upgradeManager.interface.encodeFunctionData("upgrade", [

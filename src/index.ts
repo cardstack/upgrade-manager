@@ -1,3 +1,4 @@
+import { getAddress } from "ethers/lib/utils";
 import { extendConfig, task, types } from "hardhat/config";
 import "@openzeppelin/hardhat-upgrades";
 import { HardhatPluginError } from "hardhat/plugins";
@@ -142,6 +143,11 @@ function deployTask(
           PLUGIN_NAME,
           "--impersonate-address only makes sense when forking"
         );
+      }
+
+      if (impersonateAddress) {
+        // Ensure address is checksummed
+        impersonateAddress = getAddress(impersonateAddress);
       }
 
       await hre.run("compile");
