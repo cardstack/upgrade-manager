@@ -113,36 +113,35 @@ export default async function (config: DeployConfig): Promise<{
         if (!config.dryRun) {
           let factory = await makeFactory(config, contractName);
 
-          let contract: Contract = await retryAndWaitForNonceIncrease(
-            config,
-            async () => {
-              if (deterministic) {
-                let salt;
-                if (typeof deterministic == "string") {
-                  salt = deterministic;
-                } else {
-                  salt = EMPTY_BYTES_32;
-                }
-
-                log("Deploying deterministically with salt", salt);
-
-                let address = await deployCreate2Contract({
-                  bytecode: factory.bytecode,
-                  signer: factory.signer,
-                  salt,
-                  constructorArgs: [
-                    factory.interface.deploy.inputs,
-                    contractConfig.constructorArgs,
-                  ],
-                });
-
-                return factory.attach(address);
-              } else {
-                let c = await factory.deploy(...contractConfig.constructorArgs);
-                return c.deployed();
-              }
+          let contract: Contract;
+          if (deterministic) {
+            let salt;
+            if (typeof deterministic == "string") {
+              salt = deterministic;
+            } else {
+              salt = EMPTY_BYTES_32;
             }
-          );
+
+            log("Deploying deterministically with salt", salt);
+
+            let address = await deployCreate2Contract({
+              bytecode: factory.bytecode,
+              signer: factory.signer,
+              salt,
+              constructorArgs: [
+                factory.interface.deploy.inputs,
+                contractConfig.constructorArgs,
+              ],
+            });
+
+            contract = factory.attach(address);
+          } else {
+            contract = await retryAndWaitForNonceIncrease(config, async () => {
+              let c = await factory.deploy(...contractConfig.constructorArgs);
+              return c.deployed();
+            });
+          }
+
           log(
             `Deployed new abstract contract ${contractId} (${contractName}) to ${contract.address}`
           );
