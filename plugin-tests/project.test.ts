@@ -623,7 +623,6 @@ describe("Basic project setup", function () {
     });
   });
 
-  it("calls the task again and verifies no changes");
   it("tests upgrade");
   it("tests call");
 
@@ -640,7 +639,6 @@ describe("Basic project setup", function () {
   it("handles bignum and bool");
   it("handles verification");
   it("audit dryRun");
-  it("process.env.IMMEDIATE_CONFIG_APPLY");
   it("handles changing from abstract to proxy and back");
   it("safe");
 });

@@ -19,6 +19,7 @@ export interface DeployConfigInput {
   autoConfirm: boolean;
   derivationPath?: string;
   mnemonic?: string;
+  immediateConfigApply: boolean;
 }
 
 export interface DeployConfig extends DeployConfigInput {

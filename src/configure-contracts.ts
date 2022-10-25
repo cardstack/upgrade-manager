@@ -174,7 +174,7 @@ async function configChanged({
     .split("\n")
     .map((s) => log(s));
 
-  if (process.env.IMMEDIATE_CONFIG_APPLY) {
+  if (deployConfig.immediateConfigApply) {
     // if there are a large series of calls e.g. during initial setup, it might make more sense
     // to run this script as the owner and perform the config directly, if there are multiple calls for each
     // contract

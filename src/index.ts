@@ -87,6 +87,7 @@ type TaskParams = {
   quiet: boolean;
   contractId: string;
   compare: string;
+  immediateConfigApply: boolean;
 };
 
 function deployTask(
@@ -128,6 +129,7 @@ function deployTask(
         impersonateAddress,
         derivationPath,
         autoConfirm,
+        immediateConfigApply,
       }: TaskParams = params;
       // network is the "source" - the current blockchain
       // state to use - if not forking, it's also the destination, forking
@@ -164,6 +166,7 @@ function deployTask(
         dryRun,
         derivationPath,
         autoConfirm,
+        immediateConfigApply,
         mnemonic: process.env.DEPLOY_MNEMONIC,
       };
 
@@ -211,6 +214,11 @@ deployTask(
   "deploy",
   "Deploys new contracts and propose implementation and config changes for existing deployed contracts",
   deploy
+).addOptionalParam(
+  "immediateConfigApply",
+  `If there are a large series of calls e.g. during initial setup, apply config immediately by calling methods directly on contracts instead of proposing config changes`,
+  false,
+  types.boolean
 );
 
 deployTask(
