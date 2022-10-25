@@ -643,7 +643,6 @@ describe("Basic project setup", function () {
   it("process.env.IMMEDIATE_CONFIG_APPLY");
   it("handles changing from abstract to proxy and back");
   it("safe");
-  it("doesn't ask for confirmation for status");
 });
 
 async function getStatusTable(

@@ -56,7 +56,8 @@ export async function confirmOrAutoconfirm(
 }
 
 export async function getDeployAddress(
-  config: DeployConfigMaybeWithoutDeployAddressYet
+  config: DeployConfigMaybeWithoutDeployAddressYet,
+  readOnly = false
 ): Promise<string> {
   let { network: sourceNetwork, hre, forking } = config;
   let deployAddress: string;
@@ -84,6 +85,7 @@ export async function getDeployAddress(
     deployAddress = await (await getSigner(config)).getAddress();
     if (
       !forking &&
+      !readOnly &&
       !(await confirmOrAutoconfirm(
         config.autoConfirm,
         `Send transactions from address ${deployAddress}? (No further confirmations for mnemnonic-derived addresses)`

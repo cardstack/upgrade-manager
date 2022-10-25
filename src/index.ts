@@ -92,7 +92,8 @@ type TaskParams = {
 function deployTask(
   taskName: string,
   taskDescription: string,
-  cb: (deployConfig: DeployConfig, params: TaskParams) => Promise<unknown>
+  cb: (deployConfig: DeployConfig, params: TaskParams) => Promise<unknown>,
+  options = { readOnly: false }
 ) {
   return task(taskName, taskDescription)
     .addOptionalParam("fork", "The network to fork", undefined, types.string)
@@ -168,7 +169,10 @@ function deployTask(
 
       log("Deploying to", describeNetwork(deployConfigInput));
 
-      let deployAddress: string = await getDeployAddress(deployConfigInput);
+      let deployAddress: string = await getDeployAddress(
+        deployConfigInput,
+        options.readOnly
+      );
 
       let deployConfig = {
         ...deployConfigInput,
@@ -212,7 +216,8 @@ deployTask(
 deployTask(
   "deploy:status",
   "Shows current deploy status",
-  reportProtocolStatus
+  reportProtocolStatus,
+  { readOnly: true }
 ).addOptionalParam(
   "quiet",
   "Don't exit with status 1 if changes are detected, used in tests",
