@@ -668,13 +668,8 @@ describe("Basic project setup", function () {
 
   it("tests upgrade");
   it("tests call");
-
   it("Audit TODOs");
-  it("deploys owned by safe");
-  it("supports setting init args when initially deploying");
-  it("stores the deploy meta in a subdirectory");
   it("handles verification");
-  it("handles changing from abstract to proxy and back");
   it("safe");
 });
 
