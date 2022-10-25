@@ -190,6 +190,14 @@ export async function getProtocolStatus(
 
     let contractConfig = getContractConfig(contractsConfig, contractId);
 
+    let localBytecodeChanged = (await deployedImplementationMatches(
+      config,
+      contractConfig.contract,
+      proposedAddress
+    ))
+      ? null
+      : "YES";
+
     table.push([
       contractId,
       contractConfig.contract,
@@ -197,7 +205,7 @@ export async function getProtocolStatus(
       "N/A (proposed)",
       proposedAddress || null,
       null,
-      "YES",
+      localBytecodeChanged,
     ]);
   }
 

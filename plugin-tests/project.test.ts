@@ -143,7 +143,9 @@ describe("Basic project setup", function () {
       /Could not find upgrade manager address/
     );
 
+    // Run the initial deployment
     let { stdout } = await runTask(this.hre, "deploy");
+
     expect(stdout).to.include("Deploying to --network hardhat");
     expect(stdout).to.include(
       "Deploying from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
@@ -200,6 +202,128 @@ describe("Basic project setup", function () {
     expect(await mockUpgradeableContract.barAddress()).to.eq(AddressZero);
     expect(await mockUpgradeableSecondInstance.barAddress()).to.eq(AddressZero);
 
+    let implAddress = await this.hre.upgrades.erc1967.getImplementationAddress(
+      mockUpgradeableContract.address
+    );
+
+    let abstractContractAddress = "";
+    let abstractContractWithConstructorAddress = "";
+
+    for (
+      let i = 0;
+      i <
+      (await upgradeManager.getProposedAbstractContractsLength()).toNumber();
+      i++
+    ) {
+      let { id, contractAddress } =
+        await upgradeManager.proposedAbstractContracts(i);
+      switch (id) {
+        case "AbstractContract":
+          abstractContractAddress = contractAddress;
+          break;
+        case "AbstractContractWithConstructor":
+          abstractContractWithConstructorAddress = contractAddress;
+          break;
+      }
+    }
+
+    let expectedStatus = [
+      [
+        "AbstractContract",
+        "AbstractContract",
+        null,
+        "N/A (proposed)",
+        abstractContractAddress,
+        null,
+        null,
+      ],
+      [
+        "AbstractContractWithConstructor",
+        "AbstractContractWithConstructor",
+        null,
+        "N/A (proposed)",
+        abstractContractWithConstructorAddress,
+        null,
+        null,
+      ],
+      [
+        "ContractWithNoConfig",
+        "MockUpgradeableContract",
+        await upgradeManager.adoptedContractAddresses("ContractWithNoConfig"),
+        implAddress,
+        null,
+        null,
+        null,
+      ],
+      [
+        "DeterministicContract",
+        "AbstractContract",
+        null,
+        "N/A (proposed)",
+        AbstractContractZeroSaltCreate2Address,
+        null,
+        null,
+      ],
+      [
+        "DeterministicContractDifferentSalt",
+        "AbstractContract",
+        null,
+        "N/A (proposed)",
+        AbstractContractOneSaltCreate2Address,
+        null,
+        null,
+      ],
+      [
+        "DeterministicContractWithConstructor",
+        "AbstractContractWithConstructor",
+        null,
+        "N/A (proposed)",
+        AbstractContractWithConstructorCreate2Address,
+        null,
+        null,
+      ],
+      [
+        "MockUpgradeableContract",
+        "MockUpgradeableContract",
+        mockUpgradeableContract.address,
+        implAddress,
+        null,
+        `setup(\n  string _fooString: "foo string value",\n  address _barAddress: "${mockUpgradeableSecondInstance.address}"\n)`,
+        null,
+      ],
+      [
+        "MockUpgradeableSecondInstance",
+        "MockUpgradeableContract",
+        mockUpgradeableSecondInstance.address,
+        implAddress,
+        null,
+        `setup(\n  string _fooString: "foo string value second hardhat",\n  address _barAddress: "${mockUpgradeableContract.address}"\n)`,
+        null,
+      ],
+    ];
+
+    expect(await getStatusTable(this.hre)).to.deep.eq(expectedStatus);
+
+    // Run the deploy again, check that it doesn't change the status
+    ({ stdout } = await runTask(this.hre, "deploy"));
+
+    expect(stdout).to.include(
+      "Proposed  implementation of AbstractContract is already up to date"
+    );
+    expect(stdout).to.include(
+      "Proposed  implementation of AbstractContract is already up to date"
+    );
+    expect(stdout).to.include(
+      "Proposed  implementation of AbstractContract is already up to date"
+    );
+    expect(stdout).to.include(
+      "Proposed  implementation of AbstractContractWithConstructor is already up to date"
+    );
+    expect(stdout).to.include(
+      "Proposed  implementation of AbstractContractWithConstructor is already up to date"
+    );
+    expect(await getStatusTable(this.hre)).to.deep.eq(expectedStatus);
+
     ({ stdout } = await runTask(this.hre, "deploy:upgrade", {
       newVersion: "1.0",
       autoConfirm: true,
@@ -219,13 +343,6 @@ describe("Basic project setup", function () {
     );
 
     expect(await upgradeManager.version()).to.eq("1.0");
-
-    let abstractContractAddress =
-      await upgradeManager.getAbstractContractAddress("AbstractContract");
-
-    let implAddress = await this.hre.upgrades.erc1967.getImplementationAddress(
-      mockUpgradeableContract.address
-    );
 
     let abstractContractWithConstructor = await this.hre.ethers.getContractAt(
       [
@@ -423,11 +540,6 @@ describe("Basic project setup", function () {
         null,
       ],
     ]);
-
-    // ({ stdout } = await runTask(this.hre, "deploy:diff:local", {
-    //   compare: "local",
-    //   contractId: "AbstractContract",
-    // }));
   });
 
   describe("CREATE2", function () {
@@ -531,6 +643,7 @@ describe("Basic project setup", function () {
   it("process.env.IMMEDIATE_CONFIG_APPLY");
   it("handles changing from abstract to proxy and back");
   it("safe");
+  it("doesn't ask for confirmation for status");
 });
 
 async function getStatusTable(

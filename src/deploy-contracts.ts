@@ -1,5 +1,6 @@
 import { AddressZero } from "@ethersproject/constants";
 import { getProxyAdminFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
+import colors from "colors/safe";
 import { Contract } from "ethers";
 import { readJSONSync } from "fs-extra";
 import glob from "glob";
@@ -25,6 +26,7 @@ export default async function (config: DeployConfig): Promise<{
   addresses: ContractAddressMap;
 }> {
   const { network: sourceNetwork, hre } = config;
+  let defaultLog = log;
 
   const pendingChanges: PendingChanges = {
     newImplementations: {},
@@ -38,6 +40,19 @@ export default async function (config: DeployConfig): Promise<{
   let upgradeManager = await getOrDeployUpgradeManager(config);
   let contracts = hre.config.upgradeManager.contracts;
 
+  let proposedAbstracts: { [contractId: string]: string } = {};
+  for (
+    let i = 0;
+    i < (await upgradeManager.getProposedAbstractContractsLength()).toNumber();
+    i++
+  ) {
+    let { id, contractAddress } =
+      await upgradeManager.proposedAbstractContracts(i);
+
+    // Last one in proposals should win
+    proposedAbstracts[id] = contractAddress;
+  }
+
   // Contracts are shuffled to deploy in random order, as a workaround to issues
   // deploying to certain testnets where it's suspected nodes have stuck transactions
   // with conflicting nonces not yet mined but in the mempool
@@ -49,7 +64,8 @@ export default async function (config: DeployConfig): Promise<{
       deterministic,
     } = contractConfig;
 
-    log("Contract:", contractId);
+    let log = (...strs: string[]) =>
+      defaultLog(colors.yellow(`[${contractId}]`), ...strs);
 
     let proxyAddress = await upgradeManager.adoptedContractAddresses(
       contractId
@@ -98,10 +114,24 @@ export default async function (config: DeployConfig): Promise<{
           config,
           contractName,
           currentAddress
-        ))
+        )) &&
+        !proposedAbstracts[contractId]
       ) {
         log(
           "Deployed implementation of",
+          contractName,
+          "is already up to date"
+        );
+      } else if (
+        proposedAbstracts[contractId] &&
+        (await deployedImplementationMatches(
+          config,
+          contractName,
+          proposedAbstracts[contractId]
+        ))
+      ) {
+        log(
+          "Proposed  implementation of",
           contractName,
           "is already up to date"
         );
