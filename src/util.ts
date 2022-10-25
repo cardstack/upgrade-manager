@@ -382,7 +382,8 @@ export async function getOrDeployUpgradeManager(
     let proxyAdminOwner = await proxyAdmin.owner();
     log("proxy admin owner", proxyAdminOwner);
     if (proxyAdminOwner !== config.deployAddress) {
-      throw new Error(
+      throw new HardhatPluginError(
+        PLUGIN_NAME,
         "Proxy admin is not owned by current deploy address, aborting"
       );
     }
@@ -423,7 +424,8 @@ export async function getOrDeployUpgradeManager(
 
     let upgradeManagerOwner = await upgradeManager.owner();
     if (upgradeManagerOwner !== config.deployAddress) {
-      throw new Error(
+      throw new HardhatPluginError(
+        PLUGIN_NAME,
         "Upgrade manager not owned by current deploy address, aborting"
       );
     }

@@ -4,6 +4,7 @@ import colors from "colors/safe";
 import { Contract } from "ethers";
 import { readJSONSync } from "fs-extra";
 import glob from "glob";
+import { HardhatPluginError } from "hardhat/plugins";
 import { shuffle } from "lodash";
 import difference from "lodash/difference";
 
@@ -17,6 +18,7 @@ import {
   getSigner,
   log,
   makeFactory,
+  PLUGIN_NAME,
   retryAndWaitForNonceIncrease,
 } from "./util";
 
@@ -254,7 +256,10 @@ function implAddresses(network: string) {
       networkId = 31337;
       break;
     default:
-      throw new Error(`Do not know network ID for network ${network}`);
+      throw new HardhatPluginError(
+        PLUGIN_NAME,
+        `Do not know network ID for network ${network}`
+      );
   }
   let [file] = glob.sync(`./.openzeppelin/*-${networkId}.json`);
   if (!file) {

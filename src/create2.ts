@@ -145,7 +145,8 @@ export async function deployCreate2Contract({
   let contractAddress = getAddress(await signer.call(txParams));
 
   if (contractAddress != expectedAddress) {
-    throw new Error(
+    throw new HardhatPluginError(
+      PLUGIN_NAME,
       `The contract would not be deployed at the expected CREATE2 address ${expectedAddress} but instead ${contractAddress}`
     );
   }

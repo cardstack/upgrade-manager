@@ -670,9 +670,7 @@ describe("Basic project setup", function () {
   it("tests call");
 
   it("Audit TODOs");
-  it("Audit process.env");
   it("deploys owned by safe");
-  it("audit Error classes - should be plugin error");
   it("supports setting init args when initially deploying");
   it("stores the deploy meta in a subdirectory");
   it("handles verification");
