@@ -25,6 +25,8 @@ import {
 import "../src/type-extensions";
 import {
   getFixtureProjectUpgradeManager,
+  HardhatFirstAddress,
+  HardhatSecondAddress,
   runTask,
   setupCreate2Proxy,
   useEnvironment,
@@ -542,6 +544,47 @@ describe("Basic project setup", function () {
     ]);
   });
 
+  it("Has a script to add a proposer", async function () {
+    await setupCreate2Proxy(this.hre);
+
+    // Run the initial deployment
+    await runTask(this.hre, "deploy");
+    let upgradeManager = await getFixtureProjectUpgradeManager(this);
+
+    expect(await upgradeManager.getUpgradeProposers()).to.have.members([
+      HardhatFirstAddress,
+    ]);
+
+    await runTask(this.hre, "deploy:add-proposer", {
+      proposerAddress: HardhatSecondAddress,
+    });
+
+    expect(await upgradeManager.getUpgradeProposers()).to.have.members([
+      HardhatFirstAddress,
+      HardhatSecondAddress,
+    ]);
+
+    await expect(
+      runTask(this.hre, "deploy:add-proposer", {
+        proposerAddress: HardhatSecondAddress,
+      })
+    ).to.be.rejectedWith(`${HardhatSecondAddress} is already a proposer`);
+
+    await runTask(this.hre, "deploy:remove-proposer", {
+      proposerAddress: HardhatSecondAddress,
+    });
+
+    expect(await upgradeManager.getUpgradeProposers()).to.have.members([
+      HardhatFirstAddress,
+    ]);
+
+    await expect(
+      runTask(this.hre, "deploy:remove-proposer", {
+        proposerAddress: HardhatSecondAddress,
+      })
+    ).to.be.rejectedWith(`${HardhatSecondAddress} is not a proposer`);
+  });
+
   describe("CREATE2", function () {
     it("deploys the create2 proxy and a contract at a known address", async function () {
       setBalance(
@@ -634,11 +677,8 @@ describe("Basic project setup", function () {
   );
   it("audit Error classes - should be plugin error");
   it("supports setting init args when initially deploying");
-  it("allows adding proposer");
   it("stores the deploy meta in a subdirectory");
-  it("handles bignum and bool");
   it("handles verification");
-  it("audit dryRun");
   it("handles changing from abstract to proxy and back");
   it("safe");
 });

@@ -9,6 +9,7 @@ import {
 } from "hardhat/types";
 
 import { deploy } from "./deploy";
+import { addProposer, removeProposer } from "./proposers";
 import { reportProtocolStatus } from "./status";
 import { DeployConfig, DeployConfigInput } from "./types";
 // eslint-disable-next-line import/order
@@ -88,6 +89,7 @@ type TaskParams = {
   contractId: string;
   compare: string;
   immediateConfigApply: boolean;
+  proposerAddress: string;
 };
 
 function deployTask(
@@ -98,12 +100,6 @@ function deployTask(
 ) {
   return task(taskName, taskDescription)
     .addOptionalParam("fork", "The network to fork", undefined, types.string)
-    .addOptionalParam(
-      "dryRun",
-      "Preview what would happen, without actually writing to the blockchain",
-      false,
-      types.boolean
-    )
     .addOptionalParam(
       "derivationPath",
       "Derivation path to use when using mnemonic or trezor",
@@ -214,12 +210,19 @@ deployTask(
   "deploy",
   "Deploys new contracts and propose implementation and config changes for existing deployed contracts",
   deploy
-).addOptionalParam(
-  "immediateConfigApply",
-  `If there are a large series of calls e.g. during initial setup, apply config immediately by calling methods directly on contracts instead of proposing config changes`,
-  false,
-  types.boolean
-);
+)
+  .addOptionalParam(
+    "immediateConfigApply",
+    `If there are a large series of calls e.g. during initial setup, apply config immediately by calling methods directly on contracts instead of proposing config changes`,
+    false,
+    types.boolean
+  )
+  .addOptionalParam(
+    "dryRun",
+    "Preview what would happen, without actually writing to the blockchain",
+    false,
+    types.boolean
+  );
 
 deployTask(
   "deploy:status",
@@ -274,3 +277,28 @@ deployTask(
     types.string,
     true
   );
+
+deployTask(
+  "deploy:add-proposer",
+  "Adds a proposer",
+  (config: DeployConfig, { proposerAddress }) =>
+    addProposer(config, proposerAddress)
+).addPositionalParam(
+  "proposerAddress",
+  "The proposer address to add",
+  undefined,
+  types.string,
+  false
+);
+deployTask(
+  "deploy:remove-proposer",
+  "Removes a proposer",
+  (config: DeployConfig, { proposerAddress }) =>
+    removeProposer(config, proposerAddress)
+).addPositionalParam(
+  "proposerAddress",
+  "The proposer address to remove",
+  undefined,
+  types.string,
+  false
+);

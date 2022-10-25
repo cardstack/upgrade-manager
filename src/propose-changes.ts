@@ -30,11 +30,19 @@ export default async function (
     let proposeWithWithdrawIfNeeded = async function <T>(cb: RetryCallback<T>) {
       if (alreadyPending.includes(proxyAddress)) {
         log("Withdraw needed first for", contractId);
-        await retryAndWaitForNonceIncrease(deployConfig, () =>
-          upgradeManager.withdrawChanges(contractId)
-        );
+        if (deployConfig.dryRun) {
+          console.log("Dry run, not withdrawing changes");
+        } else {
+          await retryAndWaitForNonceIncrease(deployConfig, () =>
+            upgradeManager.withdrawChanges(contractId)
+          );
+        }
       }
-      return await retryAndWaitForNonceIncrease<T>(deployConfig, cb);
+      if (deployConfig.dryRun) {
+        console.log("Dry run, not proposing changes");
+      } else {
+        await retryAndWaitForNonceIncrease<T>(deployConfig, cb);
+      }
     };
 
     if (!newImplementation && !encodedCall) {
