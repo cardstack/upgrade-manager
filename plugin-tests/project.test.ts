@@ -672,9 +672,6 @@ describe("Basic project setup", function () {
   it("Audit TODOs");
   it("Audit process.env");
   it("deploys owned by safe");
-  it(
-    "builds artifact and populates with npm publish readUpgradeManagerArtifactFromPlugin"
-  );
   it("audit Error classes - should be plugin error");
   it("supports setting init args when initially deploying");
   it("stores the deploy meta in a subdirectory");

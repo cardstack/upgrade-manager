@@ -107,7 +107,6 @@ instead of submitting the transaction, json with the current and previous
 users' signatures is output, allowing the next owner to add their signature
 until enough are collected to meet the safe's threshold
 
-
 ## Installation
 
 ```bash
@@ -165,6 +164,55 @@ representing configuration of the contract. The options are as follows:
 * `contract`: The name of the contract from your projects artifacts. You can deploy multiple instances of the same contract with different ids if required
 * `abstract`: Deploy an abstract contract instead of an upgradeable proxy. Abstract contracts do not have config and are intended to be "implementation only", so that you can set an implementation for e.g. a safe delegate implementation or another type of DELEGATECALL proxy mechanism
 * `deterministic`: "Deploy to a stable address based on the contract bytecode using [deterministic-deployment-proxy](https://github.com/Arachnid/deterministic-deployment-proxy). Only supported for abstract contracts"
+
+
+## Deploy command
+
+
+```
+Usage: hardhat [GLOBAL OPTIONS] deploy [--auto-confirm <BOOLEAN>] [--derivation-path <STRING>] [--dry-run <BOOLEAN>] [--fork <STRING>] [--immediate-config-apply <BOOLEAN>] [--impersonate-address <STRING>]
+
+OPTIONS:
+
+  --auto-confirm            Don't ask for confirmation, useful in scripts / tests (default: false)
+  --derivation-path         Derivation path to use when using mnemonic or trezor
+  --dry-run                 Preview what would happen, without actually writing to the blockchain (default: false)
+  --fork                    The network to fork
+  --immediate-config-apply  If there are a large series of calls e.g. during initial setup, apply config immediately by calling methods directly on contracts instead of proposing config changes (default: false)
+  --impersonate-address     Address to impersonate deploying from (usually only makes sense whilst forking)
+
+deploy: Deploys new contracts and propose implementation and config changes for existing deployed contracts
+```
+
+### Example
+
+```
+hardhat deploy --network goerli
+```
+
+### Forking Example
+
+This will run the deploy against an in-memory fork so you can preview changes. This assumes you have an rpc url configured correctly for this network in your hardhat config
+
+```
+hardhat deploy --fork goerli --impersonate-address $UPGRADE_MANAGER_OWNER_ADDRESS
+```
+
+
+### Forking with a persistant node
+
+You may want to preview multiple steps against a fork. To acheive this, first start a forked node:
+
+```sh
+hardhat node --fork $RPC_URL
+```
+
+Then run multiple commands against the forked node:
+
+```sh
+hardhat deploy --network localhost --fork goerli --impersonate-address $UPGRADE_MANAGER_OWNER_ADDRESS
+hardhat deploy:upgrade --network localhost --fork goerli --impersonate-address $UPGRADE_MANAGER_OWNER_ADDRESS
+```
 
 
 ## Contract configuration
