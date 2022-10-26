@@ -671,6 +671,7 @@ describe("Basic project setup", function () {
   it("Audit TODOs");
   it("handles verification");
   it("safe");
+  it("reverts with custom errors not strings");
 });
 
 async function getStatusTable(
