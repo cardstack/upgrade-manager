@@ -194,8 +194,6 @@ function deployTask(
             {
               forking: {
                 jsonRpcUrl: networkConfig.url,
-                // TODO
-                // blockNumber: 123
               },
             },
           ],

@@ -13,8 +13,6 @@ export async function upgrade(config: DeployConfig, newVersion: string) {
 
   await reportProtocolStatus(config, { quiet: true });
 
-  // TODO: dry run
-
   let upgradeManager = await getUpgradeManager(config);
 
   let nonce = await upgradeManager.nonce();
