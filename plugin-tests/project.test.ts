@@ -585,6 +585,18 @@ describe("Basic project setup", function () {
     ).to.be.rejectedWith(`${HardhatSecondAddress} is not a proposer`);
   });
 
+  it("Transfers ownership to a safe", async function () {
+    await setupCreate2Proxy(this.hre);
+
+    await runTask(this.hre, "deploy");
+
+    await runTask(this.hre, "deploy:add-proposer", {
+      proposerAddress: HardhatSecondAddress,
+    });
+
+    await runTask(this.hre, "deploy:transfer-ownership-to-safe", {});
+  });
+
   describe("CREATE2", function () {
     it("deploys the create2 proxy and a contract at a known address", async function () {
       setBalance(

@@ -589,3 +589,9 @@ export function describeNetwork(
 
   return `--network ${config.network}${fork}`;
 }
+
+export function assert(test: boolean, message: string): void {
+  if (!test) {
+    throw new HardhatPluginError(PLUGIN_NAME, message);
+  }
+}

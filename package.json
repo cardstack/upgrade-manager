@@ -25,7 +25,7 @@
     "test:sol": "./node_modules/.bin/hardhat test --typecheck",
     "coverage": "env SILENCE_COMPILER_WARNINGS=true ./node_modules/.bin/hardhat coverage",
     "lint:contract-size": "{ ./node_modules/.bin/hardhat size-contracts | tee /dev/fd/3 | grep -q 'exceed the size limit for mainnet deployment' && exit 1; } 3>&1 || echo 'All contracts within size limit'",
-    "test": "yarn test:sol && yarn test:plugin && yarn lint",
+    "test": "yarn test:sol && yarn test:plugin",
     "build": "yarn compile && node_modules/.bin/tsc && cp *.sol.json ./dist/",
     "watch": "tsc -w",
     "prepublishOnly": "yarn clean && yarn build"
