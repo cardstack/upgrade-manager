@@ -43,7 +43,7 @@ export default async function (
     contract: contractName,
     abstract,
   } of upgradeManagerConfig.contracts) {
-    let log = (...strs: string[]) =>
+    let log = (...strs: unknown[]) =>
       defaultLog(colors.yellow(`[${contractId}]`), ...strs);
 
     if (abstract) {

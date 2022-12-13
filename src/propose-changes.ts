@@ -31,7 +31,7 @@ export default async function (
       if (alreadyPending.includes(proxyAddress)) {
         log("Withdraw needed first for", contractId);
         if (deployConfig.dryRun) {
-          console.log("Dry run, not withdrawing changes");
+          log("Dry run, not withdrawing changes");
         } else {
           await retryAndWaitForNonceIncrease(deployConfig, () =>
             upgradeManager.withdrawChanges(contractId)
@@ -39,7 +39,7 @@ export default async function (
         }
       }
       if (deployConfig.dryRun) {
-        console.log("Dry run, not proposing changes");
+        log("Dry run, not proposing changes");
       } else {
         await retryAndWaitForNonceIncrease<T>(deployConfig, cb);
       }

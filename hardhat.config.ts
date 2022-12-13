@@ -6,7 +6,24 @@ import "hardhat-contract-sizer";
 import { HardhatUserConfig } from "hardhat/config";
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.17",
+  solidity: {
+    compilers: [
+      {
+        version: "0.8.17",
+      },
+    ],
+
+    overrides: {
+      "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol": {
+        version: "0.8.17",
+        settings: {
+          optimizer: {
+            enabled: true,
+          },
+        },
+      },
+    },
+  },
 };
 
 export default config;
