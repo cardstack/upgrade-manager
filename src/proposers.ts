@@ -1,17 +1,13 @@
 import { HardhatPluginError } from "hardhat/plugins";
 
+import { maybeSafeTransaction, SafeSignature } from "./safe";
 import { DeployConfig } from "./types";
-import {
-  getUpgradeManager,
-  log,
-  PLUGIN_NAME,
-  retryAndWaitForNonceIncrease,
-} from "./util";
+import { getUpgradeManager, log, PLUGIN_NAME } from "./util";
 
 export async function addProposer(
   config: DeployConfig,
   proposerAddress: string
-): Promise<void> {
+): Promise<SafeSignature[] | undefined> {
   let upgradeManager = await getUpgradeManager(config, true);
 
   if (
@@ -25,17 +21,17 @@ export async function addProposer(
     );
   }
   log("Adding proposer", proposerAddress);
-  await retryAndWaitForNonceIncrease(config, async () =>
-    (await upgradeManager.addUpgradeProposer(proposerAddress)).wait()
+
+  let signatures = await maybeSafeTransaction(config, async (iface) =>
+    iface.encodeFunctionData("addUpgradeProposer", [proposerAddress])
   );
-  log("Success");
-  // TODO: safe
+  return signatures;
 }
 
 export async function removeProposer(
   config: DeployConfig,
   proposerAddress: string
-): Promise<void> {
+): Promise<SafeSignature[] | undefined> {
   let upgradeManager = await getUpgradeManager(config, true);
 
   if (
@@ -49,10 +45,8 @@ export async function removeProposer(
     );
   }
   log("Removing proposer", proposerAddress);
-  await retryAndWaitForNonceIncrease(config, async () =>
-    (await upgradeManager.removeUpgradeProposer(proposerAddress)).wait()
-  );
-  log("Success");
 
-  // TODO: safe
+  return await maybeSafeTransaction(config, async (iface) =>
+    iface.encodeFunctionData("removeUpgradeProposer", [proposerAddress])
+  );
 }

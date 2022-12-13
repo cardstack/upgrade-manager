@@ -1,24 +1,39 @@
-import { existsSync, readFileSync } from "fs";
-import { dirname, join, resolve } from "path";
+import { existsSync } from "fs";
+import { dirname, resolve } from "path";
 
 import { VoidSigner } from "@ethersproject/abstract-signer";
 import { BaseProvider, JsonRpcProvider } from "@ethersproject/providers";
+import {
+  getProxyFactoryDeployment,
+  getSafeSingletonDeployment,
+} from "@gnosis.pm/safe-deployments";
 import { impersonateAccount } from "@nomicfoundation/hardhat-network-helpers";
 import { getTransparentUpgradeableProxyFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
 import { hashBytecodeWithoutMetadata } from "@openzeppelin/upgrades-core";
 import colors from "colors/safe";
 import { prompt } from "enquirer";
-import { Contract, ContractFactory, Signer } from "ethers";
+import { BigNumber, Contract, ContractFactory } from "ethers";
 import { Interface } from "ethers/lib/utils";
+import { getAllChains } from "evm-chains";
 import { mkdirp, readJSONSync, writeJsonSync } from "fs-extra";
 import { HardhatPluginError } from "hardhat/plugins";
-import { Artifact, HardhatNetworkHDAccountsConfig } from "hardhat/types";
+import { HardhatNetworkHDAccountsConfig } from "hardhat/types";
 import { difference } from "lodash";
 import lodashIsEqual from "lodash/isEqual";
 import TrezorWalletProvider from "trezor-cli-wallet-provider";
 
-import { getErrorMessageAndStack } from "../shared";
-import { UpgradeManager, UpgradeManager__factory } from "../typechain-types";
+import {
+  getErrorMessageAndStack,
+  PLUGIN_NAME,
+  readArtifactFromPlugin,
+} from "../shared";
+import {
+  GnosisSafeProxyFactory__factory,
+  GnosisSafe__factory,
+  UpgradeManager,
+  UpgradeManager__factory,
+} from "../typechain-types";
+export { PLUGIN_NAME } from "../shared";
 
 import {
   DeployConfig,
@@ -28,9 +43,7 @@ import {
   RetryCallback,
 } from "./types";
 
-export const PLUGIN_NAME = "upgrade-manager";
-
-export function log(...strs: string[]) {
+export function log(...strs: unknown[]) {
   console.log(colors.blue(`[Deploy]`), ...strs);
 }
 
@@ -118,7 +131,7 @@ function getHardhatTestWallet({
 export async function getSigner(
   config: DeployConfigMaybeWithoutDeployAddressYet,
   address?: string
-): Promise<Signer> {
+): Promise<VoidSigner> {
   let { hre, forking, deployAddress } = config;
 
   if (config.network == "hardhat") {
@@ -128,14 +141,14 @@ export async function getSigner(
         addressForSigner
       ) as unknown as VoidSigner;
     } else {
-      return (await config.hre.ethers.getSigners())[0];
+      return (await config.hre.ethers.getSigners())[0] as unknown as VoidSigner;
     }
   }
 
   let rpcUrl = getRpcUrl(config);
   let derivationPath = config.derivationPath;
 
-  const { chainId } = hre.network.config;
+  let chainId = getSourceChainId(config);
 
   if (
     config.network === "localhost" &&
@@ -157,7 +170,6 @@ export async function getSigner(
       config.derivationPath
     ).connect(provider) as unknown as VoidSigner;
   } else {
-    log("No mnemonic found in config, using trezor");
     const walletProvider = new TrezorWalletProvider(rpcUrl, {
       chainId: chainId,
       numberOfAccounts: 3,
@@ -176,7 +188,7 @@ export async function getSigner(
 export async function retryAndWaitForNonceIncrease<T>(
   config: DeployConfig,
   cb: RetryCallback<T>,
-  maxAttempts = 10
+  maxAttempts = 60
 ): Promise<T> {
   let oldNonce = await config.hre.ethers.provider.getTransactionCount(
     config.deployAddress
@@ -211,12 +223,17 @@ export async function retry<T>(
     } catch (e) {
       let { message, stack } = getErrorMessageAndStack(e);
 
-      log(
-        `received ${message}, trying again (${attempts} of ${maxAttempts} attempts)`
-      );
+      if (message.includes(`Nonce not increased yet`)) {
+        log("Still waiting for nonce increase");
+        await delay(20 * 1000);
+      } else {
+        log(
+          `received ${message}, trying again (${attempts} of ${maxAttempts} attempts)`
+        );
 
-      if (stack) {
-        log(stack);
+        if (stack) {
+          log(stack);
+        }
       }
     }
   } while (attempts < maxAttempts);
@@ -299,7 +316,8 @@ export async function deployNewProxyAndImplementation(
       );
       let instance = await config.hre.upgrades.deployProxy(
         factory,
-        constructorArgs
+        constructorArgs,
+        { timeout: 10 * 1000 * 60 }
       );
       log("Waiting for transaction");
       await instance.deployed();
@@ -313,6 +331,22 @@ export async function deployNewProxyAndImplementation(
     }
   });
 }
+export async function makeFactory(
+  config: DeployConfig,
+  contractName: "UpgradeManager"
+): Promise<UpgradeManager__factory>;
+export async function makeFactory(
+  config: DeployConfig,
+  contractName: "GnosisSafe"
+): Promise<GnosisSafe__factory>;
+export async function makeFactory(
+  config: DeployConfig,
+  contractName: "GnosisSafeProxyFactory"
+): Promise<GnosisSafeProxyFactory__factory>;
+export async function makeFactory(
+  config: DeployConfig,
+  contractName: string
+): Promise<ContractFactory>;
 
 export async function makeFactory(
   config: DeployConfig,
@@ -320,8 +354,15 @@ export async function makeFactory(
 ): Promise<ContractFactory> {
   let factory: ContractFactory;
 
-  if (contractName == "upgradeManager") {
-    factory = await getUpgradeManagerFactory(config);
+  if (
+    [
+      "UpgradeManager",
+      "IProxyAdmin",
+      "GnosisSafe",
+      "GnosisSafeProxyFactory",
+    ].includes(contractName)
+  ) {
+    factory = await getArtifactFactory(config, contractName);
   } else {
     factory = await config.hre.ethers.getContractFactory(contractName);
   }
@@ -335,15 +376,16 @@ export async function makeFactory(
   return factory.connect(await getSigner(config));
 }
 
-export async function getUpgradeManagerFactory(
-  config: DeployConfig
-): Promise<UpgradeManager__factory> {
-  let { abi, bytecode } = readUpgradeManagerArtifactFromPlugin();
+export async function getArtifactFactory(
+  config: DeployConfig,
+  artifactName: string
+): Promise<ContractFactory> {
+  let { abi, bytecode } = readArtifactFromPlugin(artifactName);
   return (await config.hre.ethers.getContractFactory(
     abi,
     bytecode,
     await getSigner(config)
-  )) as UpgradeManager__factory;
+  )) as ContractFactory;
 }
 
 export async function getOrDeployUpgradeManager(
@@ -358,7 +400,10 @@ export async function getOrDeployUpgradeManager(
     return upgradeManager;
   } else {
     log(`Deploying new upgrade manager`);
-    let UpgradeManager = await getUpgradeManagerFactory(config);
+    let UpgradeManager = (await getArtifactFactory(
+      config,
+      "UpgradeManager"
+    )) as UpgradeManager__factory;
 
     if (!config.hre.upgrades) {
       throw new HardhatPluginError(
@@ -370,7 +415,9 @@ export async function getOrDeployUpgradeManager(
     let signer = UpgradeManager.signer;
 
     log("getting or deploying proxy admin");
-    const adminAddress = await config.hre.upgrades.deployProxyAdmin(signer);
+    const adminAddress = await config.hre.upgrades.deployProxyAdmin(signer, {
+      timeout: 10 * 1000 * 60,
+    });
     log("admin address", adminAddress);
 
     let proxyAdmin = await getContractAtWithSignature(
@@ -461,26 +508,13 @@ export async function getUpgradeManager(
   if (!readOnly) {
     signer = await getSigner(config);
   }
-  let { abi } = readUpgradeManagerArtifactFromPlugin();
+  let { abi } = readArtifactFromPlugin("UpgradeManager");
 
   return (await config.hre.ethers.getContractAt(
     abi,
     upgradeManagerAddress,
     signer
   )) as UpgradeManager;
-}
-
-function readUpgradeManagerArtifactFromPlugin(): Artifact {
-  let path = join(__dirname, "../UpgradeManager.sol.json");
-  if (!existsSync(path)) {
-    throw new HardhatPluginError(
-      PLUGIN_NAME,
-      `Could not locate compiled UpgradeManager at ${path}, run yarn compile`
-    );
-  }
-  let artifact: Artifact = JSON.parse(readFileSync(path, "utf-8"));
-
-  return artifact;
 }
 
 export function readMetadata(
@@ -555,6 +589,8 @@ export function isSolidityValuesEqual(val1: unknown, val2: unknown): boolean {
   return lodashIsEqual(val1, val2);
 }
 
+// TODO: use other create2 deploy
+
 export function formatEncodedCall(
   contract: Contract | ContractFactory,
   encodedCall: string
@@ -573,6 +609,9 @@ export function formatEncodedCallWithInterface(
   } = tx;
 
   function format(arg: unknown) {
+    if (arg instanceof BigNumber) {
+      return arg.toString();
+    }
     return JSON.stringify(arg);
   }
   let formattedArgs = inputs.map(
@@ -588,4 +627,79 @@ export function describeNetwork(
   let fork = config.forking ? ` (Forking ${config.sourceNetwork})` : "";
 
   return `--network ${config.network}${fork}`;
+}
+
+export function assert(test: boolean, message: string): void {
+  if (!test) {
+    throw new HardhatPluginError(PLUGIN_NAME, message);
+  }
+}
+
+export function getSourceChainId(
+  config: DeployConfigMaybeWithoutDeployAddressYet
+): number {
+  let specifiedChainId =
+    config.hre.config.networks[config.sourceNetwork].chainId;
+
+  if (specifiedChainId) {
+    return specifiedChainId;
+  }
+  if (config.sourceNetwork === "hardhat") {
+    return 31337;
+  }
+
+  let networkName = config.sourceNetwork;
+
+  if (networkName === "mainnet") {
+    networkName = "eth";
+  }
+
+  let chain = getAllChains().find((c) => {
+    return c.shortName === networkName;
+  });
+
+  if (!chain) {
+    throw new Error(
+      `Could not find chainid of ${config.sourceNetwork} - please specify chainId in your hardhat config for this network`
+    );
+  }
+
+  return chain.chainId;
+}
+
+export function getGnosisSafeSingletonAddress(config: DeployConfig): string {
+  if (config.network === "hardhat") {
+    return "0xC98b5FF308E292a2D87D71B4e315DEF7F4c3b4De";
+  }
+
+  let chainId = getSourceChainId(config);
+  let deployment = getSafeSingletonDeployment({
+    network: chainId.toString(),
+  });
+  if (!deployment) {
+    throw new HardhatPluginError(
+      PLUGIN_NAME,
+      `Could not find gnosis safe singleton deployment for ${config.sourceNetwork}`
+    );
+  }
+
+  return deployment.networkAddresses[chainId.toString()];
+}
+
+export function getGnosisSafeProxyFactoryAddress(config: DeployConfig): string {
+  if (config.network === "hardhat") {
+    return "0x70f8FC994B34536f362092638B72424717811aB8";
+  }
+  let chainId = getSourceChainId(config);
+  let deployment = getProxyFactoryDeployment({
+    network: chainId.toString(),
+  });
+  if (!deployment) {
+    throw new HardhatPluginError(
+      PLUGIN_NAME,
+      `Could not find gnosis safe proxy factory deployment for ${config.sourceNetwork}`
+    );
+  }
+
+  return deployment.networkAddresses[chainId.toString()];
 }

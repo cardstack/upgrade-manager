@@ -1,12 +1,13 @@
 // import { ExampleHardhatRuntimeEnvironmentField } from "../src/ExampleHardhatRuntimeEnvironmentField";
 
 import { AddressZero } from "@ethersproject/constants";
+import { SafeSignature } from "@gnosis.pm/safe-contracts";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
 import { HardhatUpgrades } from "@openzeppelin/hardhat-upgrades";
 import { expect } from "chai";
 import Table from "cli-table3";
-import { ethers } from "ethers";
+import { Contract, ethers } from "ethers";
 import { getAddress } from "ethers/lib/utils";
 import {
   HardhatRuntimeEnvironment,
@@ -14,6 +15,7 @@ import {
 } from "hardhat/types";
 import { sortBy } from "lodash";
 
+import { readArtifactFromPlugin } from "../shared";
 import {
   CREATE2_PROXY_DEPLOYMENT_COST,
   CREATE2_PROXY_DEPLOYMENT_SIGNER_ADDRESS,
@@ -21,9 +23,12 @@ import {
   deployCreate2Proxy,
   getCreate2Address,
 } from "../src/create2";
-
+import { encodePriorSignatures } from "../src/safe";
 import "../src/type-extensions";
+import { GnosisSafe } from "../typechain-types";
+
 import {
+  deployGnosisSafeProxyFactoryAndSingleton,
   getFixtureProjectUpgradeManager,
   HardhatFirstAddress,
   HardhatSecondAddress,
@@ -666,13 +671,169 @@ describe("Basic project setup", function () {
     });
   });
 
-  it("tests upgrade");
+  describe.only("deploy:safe-ownership", () => {
+    it("should transfer the ownership of the upgrade manager to the newly created safe", async function () {
+      await setupCreate2Proxy(this.hre);
+      await deployGnosisSafeProxyFactoryAndSingleton(this.hre);
+
+      // Run the initial deployment
+      await runTask(this.hre, "deploy");
+
+      // Call the deploy:safe-setup task
+      await runTask(this.hre, "deploy:safe-setup", {
+        newSafeOwners: [HardhatFirstAddress].join(","),
+        newSafeThreshold: 1,
+        autoConfirm: true,
+      });
+
+      const upgradeManager = await getFixtureProjectUpgradeManager(this);
+
+      // Get the address of the newly created safe from the task's result
+      const safeAddress = await upgradeManager.owner();
+
+      // Get the Gnosis Safe contract using its address
+      const safe = await getIncludedContractAt(
+        this.hre,
+        "GnosisSafe",
+        safeAddress
+      );
+
+      // Assert that the Gnosis Safe contract has the expected signers and threshold
+      expect(await safe.getOwners()).to.have.members([HardhatFirstAddress]);
+      expect(await safe.getThreshold()).equal("1");
+
+      // Add a proposer and test that the address is added to upgrade proposers
+
+      await runTask(this.hre, "deploy:add-proposer", {
+        proposerAddress: HardhatSecondAddress,
+        autoConfirm: true,
+      });
+
+      expect(await upgradeManager.getUpgradeProposers()).to.have.members([
+        HardhatFirstAddress,
+        HardhatSecondAddress,
+      ]);
+
+      // Add safe owner and set the threshold to 2. verify the owner is added and the threshold changes
+      await runTask(this.hre, "deploy:add-safe-owner", {
+        newSafeOwnerAddress: HardhatSecondAddress,
+        newSafeThreshold: 2,
+        autoConfirm: true,
+      });
+
+      expect(await safe.getOwners()).to.have.members([
+        HardhatFirstAddress,
+        HardhatSecondAddress,
+      ]);
+      expect(await safe.getThreshold()).equal("2");
+
+      // Modify a contract locally and propose upgrade
+
+      writeFixtureProjectFile(
+        "contracts/AbstractContract.sol",
+        `
+        pragma solidity ^0.8.17;
+        pragma abicoder v1;
+
+        contract AbstractContract {
+          function version() external pure returns (string memory) {
+            return "2";
+          }
+        }`
+      );
+
+      await runTask(this.hre, "deploy");
+
+      // Run the deploy:upgrade script once and get signature data for first safe owner
+
+      let { result: signatures } = await runTask(this.hre, "deploy:upgrade", {
+        newVersion: "2.0",
+        autoConfirm: true,
+      });
+
+      // Run the deploy:upgrade script again, passing in the first signature
+      await runTask(this.hre, "deploy:upgrade", {
+        newVersion: "2.0",
+        priorSignatures: encodePriorSignatures(signatures as SafeSignature[]),
+        autoConfirm: true,
+        impersonateAddress: HardhatSecondAddress,
+      });
+
+      // Verify contracts upgraded
+      expect(await upgradeManager.version()).to.eq("2.0");
+
+      // Remove a proposer and test that the address is removed from upgrade proposers
+      ({ result: signatures } = await runTask(
+        this.hre,
+        "deploy:remove-proposer",
+        {
+          proposerAddress: HardhatFirstAddress,
+          autoConfirm: true,
+        }
+      ));
+      await runTask(this.hre, "deploy:remove-proposer", {
+        proposerAddress: HardhatFirstAddress,
+        autoConfirm: true,
+        impersonateAddress: HardhatSecondAddress,
+        priorSignatures: encodePriorSignatures(signatures as SafeSignature[]),
+      });
+
+      expect(await upgradeManager.getUpgradeProposers()).to.have.members([
+        HardhatSecondAddress,
+      ]);
+
+      // set safe threshold to 1
+      ({ result: signatures } = await runTask(
+        this.hre,
+        "deploy:set-safe-threshold",
+        {
+          newSafeThreshold: 1,
+          autoConfirm: true,
+        }
+      ));
+      await runTask(this.hre, "deploy:set-safe-threshold", {
+        newSafeThreshold: 1,
+        autoConfirm: true,
+        priorSignatures: encodePriorSignatures(signatures as SafeSignature[]),
+        impersonateAddress: HardhatSecondAddress,
+      });
+
+      expect(await safe.getThreshold()).to.eq(1);
+
+      // remove safe owner
+
+      await runTask(this.hre, "deploy:remove-safe-owner", {
+        removeSafeOwnerAddress: HardhatSecondAddress,
+        autoConfirm: true,
+      });
+
+      expect(await safe.getOwners()).to.have.members([HardhatFirstAddress]);
+      expect(await safe.getThreshold()).to.eq(1);
+    });
+  });
+
   it("tests call");
   it("Audit TODOs");
+  it("Audit dryRun");
   it("handles verification");
-  it("safe");
   it("reverts with custom errors not strings");
+  it("has ability to get upgrade manager contract from hre");
 });
+
+function getIncludedContractAt(
+  hre: HardhatRuntimeEnvironment,
+  contractName: "GnosisSafe",
+  contractAddress: string
+): Promise<GnosisSafe>;
+
+async function getIncludedContractAt(
+  hre: HardhatRuntimeEnvironment,
+  contractName: string,
+  contractAddress: string
+): Promise<Contract> {
+  let { abi } = readArtifactFromPlugin(contractName);
+  return await hre.ethers.getContractAt(abi, contractAddress);
+}
 
 async function getStatusTable(
   hre: HardhatRuntimeEnvironment

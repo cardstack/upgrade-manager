@@ -1,14 +1,14 @@
+import { SafeSignature } from "@gnosis.pm/safe-contracts";
+
+import { maybeSafeTransaction } from "./safe";
 import { reportProtocolStatus } from "./status";
 import { DeployConfig } from "./types";
-import {
-  getUpgradeManager,
-  log,
-  retryAndWaitForNonceIncrease,
-  formatEncodedCall,
-  confirmOrAutoconfirm,
-} from "./util";
+import { getUpgradeManager, log, confirmOrAutoconfirm } from "./util";
 
-export async function upgrade(config: DeployConfig, newVersion: string) {
+export async function upgrade(
+  config: DeployConfig,
+  newVersion: string
+): Promise<SafeSignature[] | undefined> {
   log("Sending transactions from", config.deployAddress);
 
   await reportProtocolStatus(config, { quiet: true });
@@ -29,38 +29,10 @@ export async function upgrade(config: DeployConfig, newVersion: string) {
     log("Cancelling upgrade");
     process.exit(1);
   }
-  let upgradeManagerOwner = await upgradeManager.owner();
 
-  if (upgradeManagerOwner === config.deployAddress) {
-    log(
-      `The upgrade manager is owned by the active deploy address ${config.deployAddress}; Sending a regular upgrade transaction`
-    );
-    await retryAndWaitForNonceIncrease(config, () =>
-      upgradeManager.upgrade(newVersion, nonce)
-    );
-    log("Success");
-  } else {
-    log(
-      `Owner of the upgrade manager (${upgradeManagerOwner}) is not the active deploy address (${config.deployAddress}, attempting safe transaction`
-    );
+  let signatures = maybeSafeTransaction(config, (iface) =>
+    iface.encodeFunctionData("upgrade", [newVersion, nonce])
+  );
 
-    let data = upgradeManager.interface.encodeFunctionData("upgrade", [
-      newVersion,
-      nonce,
-    ]);
-
-    log(
-      `Preparing to call function on UpgradeManager@${upgradeManager.address} via safe:\n`,
-      formatEncodedCall(upgradeManager, data)
-    );
-
-    // TODO: safe
-    // await safeTransaction({
-    //   signerAddress: deployAddress,
-    //   safeAddress: upgradeManagerOwner,
-    //   to: upgradeManager.address,
-    //   data,
-    //   priorSignatures: true,
-    // });
-  }
+  return signatures;
 }

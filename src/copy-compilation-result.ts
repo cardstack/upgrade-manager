@@ -7,6 +7,9 @@ import { asyncMain } from "./util";
 
 async function main() {
   await copyArtifact("UpgradeManager");
+  await copyArtifact("IProxyAdmin");
+  await copyArtifact("GnosisSafe");
+  await copyArtifact("GnosisSafeProxyFactory");
 }
 
 async function copyArtifact(contractName: string) {

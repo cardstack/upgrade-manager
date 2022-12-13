@@ -215,6 +215,26 @@ hardhat deploy:upgrade --network localhost --fork goerli --impersonate-address $
 ```
 
 
+## `deploy:upgrade` command
+
+Usage: hardhat [GLOBAL OPTIONS] deploy:upgrade [--auto-confirm <BOOLEAN>] [--derivation-path <STRING>] [--fork <STRING>] [--impersonate-address <STRING>] [--mnemonic <STRING>] [--prior-signatures <STRING>] newVersion
+
+OPTIONS:
+
+  --auto-confirm        Don't ask for confirmation, useful in scripts / tests (default: false)
+  --derivation-path     Derivation path to use when using mnemonic or trezor
+  --fork                The network to fork
+  --impersonate-address Address to impersonate deploying from (usually only makes sense whilst forking)
+  --mnemonic            Mnemonic to use for deploy actions
+  --prior-signatures    Prior safe signatures collected for this operation
+
+POSITIONAL ARGUMENTS:
+
+  newVersion  The new version number to set on the upgrade manager. Does not have to increase or change
+
+deploy:upgrade: Applies pending contract upgrades and config changes atomically
+
+
 ## Contract configuration
 
 For each contract id above that you want to configure, add a file in the `config/` subdirectory of your hardhat project, for example:
@@ -286,9 +306,134 @@ contract MockUpgradeableContract {
 
 The reason to use a single setter method instead of a setter for each
 property is to avoid contract-bloat with many setter functions. Usually this
-would be inconvenient to manually manager, however with the automated
+would be inconvenient to manually manage, however with the automated
 configuration provided by the UpgradeManager this optimisation is no longer
 inconvenient to use
+
+
+## Adding and removing upgrade proposers
+
+### deploy:add-proposer
+
+Usage: hardhat [GLOBAL OPTIONS] deploy:add-proposer [--auto-confirm <BOOLEAN>] [--derivation-path <STRING>] [--fork <STRING>] [--impersonate-address <STRING>] [--mnemonic <STRING>] [--prior-signatures <STRING>] proposerAddress
+
+OPTIONS:
+
+  --auto-confirm        Don't ask for confirmation, useful in scripts / tests (default: false)
+  --derivation-path     Derivation path to use when using mnemonic or trezor
+  --fork                The network to fork
+  --impersonate-address Address to impersonate deploying from (usually only makes sense whilst forking)
+  --mnemonic            Mnemonic to use for deploy actions
+  --prior-signatures    Prior safe signatures collected for this operation
+
+POSITIONAL ARGUMENTS:
+
+  proposerAddress The proposer address to add
+
+deploy:add-proposer: Adds a proposer
+
+### deploy:remove-proposer
+
+Usage: hardhat [GLOBAL OPTIONS] deploy:remove-proposer [--auto-confirm <BOOLEAN>] [--derivation-path <STRING>] [--fork <STRING>] [--impersonate-address <STRING>] [--mnemonic <STRING>] [--prior-signatures <STRING>] proposerAddress
+
+OPTIONS:
+
+  --auto-confirm        Don't ask for confirmation, useful in scripts / tests (default: false)
+  --derivation-path     Derivation path to use when using mnemonic or trezor
+  --fork                The network to fork
+  --impersonate-address Address to impersonate deploying from (usually only makes sense whilst forking)
+  --mnemonic            Mnemonic to use for deploy actions
+  --prior-signatures    Prior safe signatures collected for this operation
+
+POSITIONAL ARGUMENTS:
+
+  proposerAddress The proposer address to remove
+
+deploy:remove-proposer: Removes a proposer
+
+## Gnosis Safe Ownership of upgrade manager
+
+It is recommended that after initial deploy, you transfer ownership of the upgrade manager to a gnosis safe.
+
+
+### deploy:safe-setup
+
+Usage: hardhat [GLOBAL OPTIONS] deploy:safe-setup [--auto-confirm <BOOLEAN>] [--derivation-path <STRING>] [--fork <STRING>] [--impersonate-address <STRING>] [--mnemonic <STRING>] [--prior-signatures <STRING>] newSafeOwners [newSafeThreshold]
+
+OPTIONS:
+
+  --auto-confirm        Don't ask for confirmation, useful in scripts / tests (default: false)
+  --derivation-path     Derivation path to use when using mnemonic or trezor
+  --fork                The network to fork
+  --impersonate-address Address to impersonate deploying from (usually only makes sense whilst forking)
+  --mnemonic            Mnemonic to use for deploy actions
+  --prior-signatures    Prior safe signatures collected for this operation
+
+POSITIONAL ARGUMENTS:
+
+  newSafeOwners     The new owners of the safe, comma seperated addresses
+  newSafeThreshold  The new threshold for the safe (default: 1)
+
+deploy:safe-setup: Setup a new Gnosis Safe contract and transfer ths ownership of the upgrade manager to the new safe
+
+### deploy:add-safe-owner
+
+Usage: hardhat [GLOBAL OPTIONS] deploy:add-safe-owner [--auto-confirm <BOOLEAN>] [--derivation-path <STRING>] [--fork <STRING>] [--impersonate-address <STRING>] [--mnemonic <STRING>] [--new-safe-threshold <INT>] [--prior-signatures <STRING>] newSafeOwnerAddress
+
+OPTIONS:
+
+  --auto-confirm        Don't ask for confirmation, useful in scripts / tests (default: false)
+  --derivation-path     Derivation path to use when using mnemonic or trezor
+  --fork                The network to fork
+  --impersonate-address Address to impersonate deploying from (usually only makes sense whilst forking)
+  --mnemonic            Mnemonic to use for deploy actions
+  --new-safe-threshold  The new threshold for the safe, if it changes
+  --prior-signatures    Prior safe signatures collected for this operation
+
+POSITIONAL ARGUMENTS:
+
+  newSafeOwnerAddress The safe owner address to add
+
+deploy:add-safe-owner: Adds a safe owner
+
+### deploy:remove-safe-owner
+
+Usage: hardhat [GLOBAL OPTIONS] deploy:remove-safe-owner [--auto-confirm <BOOLEAN>] [--derivation-path <STRING>] [--fork <STRING>] [--impersonate-address <STRING>] [--mnemonic <STRING>] [--new-safe-threshold <INT>] [--prior-signatures <STRING>] removeSafeOwnerAddress
+
+OPTIONS:
+
+  --auto-confirm        Don't ask for confirmation, useful in scripts / tests (default: false)
+  --derivation-path     Derivation path to use when using mnemonic or trezor
+  --fork                The network to fork
+  --impersonate-address Address to impersonate deploying from (usually only makes sense whilst forking)
+  --mnemonic            Mnemonic to use for deploy actions
+  --new-safe-threshold  The new threshold for the safe, if it changes
+  --prior-signatures    Prior safe signatures collected for this operation
+
+POSITIONAL ARGUMENTS:
+
+  removeSafeOwnerAddress  The safe owner address to remove
+
+deploy:remove-safe-owner: Removes a safe owner
+
+### deploy:set-safe-threshold
+
+Usage: hardhat [GLOBAL OPTIONS] deploy:set-safe-threshold [--auto-confirm <BOOLEAN>] [--derivation-path <STRING>] [--fork <STRING>] [--impersonate-address <STRING>] [--mnemonic <STRING>] [--prior-signatures <STRING>] newSafeThreshold
+
+OPTIONS:
+
+  --auto-confirm        Don't ask for confirmation, useful in scripts / tests (default: false)
+  --derivation-path     Derivation path to use when using mnemonic or trezor
+  --fork                The network to fork
+  --impersonate-address Address to impersonate deploying from (usually only makes sense whilst forking)
+  --mnemonic            Mnemonic to use for deploy actions
+  --prior-signatures    Prior safe signatures collected for this operation
+
+POSITIONAL ARGUMENTS:
+
+  newSafeThreshold  The new threshold for the safe
+
+deploy:set-safe-threshold: Sets the threshold for a safe
 
 ## Testing
 

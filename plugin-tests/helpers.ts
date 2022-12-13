@@ -2,6 +2,7 @@ import { EventEmitter } from "events";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 
+import { hardhatChaiMatchers } from "@nomicfoundation/hardhat-chai-matchers/internal/hardhatChaiMatchers";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
@@ -13,15 +14,17 @@ import { Context } from "mocha";
 import rmrf from "rmrf";
 import { stdout } from "test-console";
 
-import { getErrorMessageAndStack } from "../shared";
+import { getErrorMessageAndStack, readArtifactFromPlugin } from "../shared";
 import {
   CREATE2_PROXY_DEPLOYMENT_COST,
   CREATE2_PROXY_DEPLOYMENT_SIGNER_ADDRESS,
+  deployCreate2Contract,
   deployCreate2Proxy,
 } from "../src/create2";
 import { UpgradeManager } from "../typechain-types";
 
 chai.use(chaiAsPromised);
+chai.use(hardhatChaiMatchers);
 
 declare module "mocha" {
   interface Context {
@@ -173,3 +176,27 @@ export async function setupCreate2Proxy(hre: HardhatRuntimeEnvironment) {
 export const HardhatFirstAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 export const HardhatSecondAddress =
   "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+
+export async function deployGnosisSafeProxyFactoryAndSingleton(
+  hre: HardhatRuntimeEnvironment
+): Promise<void> {
+  let { abi, bytecode } = readArtifactFromPlugin("GnosisSafe");
+
+  let GnosisSafe = await hre.ethers.getContractFactory(abi, bytecode);
+
+  await deployCreate2Contract({
+    signer: hre.ethers.provider.getSigner(),
+    bytecode: GnosisSafe.bytecode,
+  });
+
+  ({ abi, bytecode } = readArtifactFromPlugin("GnosisSafeProxyFactory"));
+
+  let GnosisSafeProxyFactory = await hre.ethers.getContractFactory(
+    abi,
+    bytecode
+  );
+  await deployCreate2Contract({
+    signer: hre.ethers.provider.getSigner(),
+    bytecode: GnosisSafeProxyFactory.bytecode,
+  });
+}

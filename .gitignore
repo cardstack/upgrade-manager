@@ -74,5 +74,8 @@ cache
 coverage.json
 
 UpgradeManager.sol.json
+GnosisSafe.sol.json
+GnosisSafeProxyFactory.sol.json
+IProxyAdmin.sol.json
 
 plugin-tests/fixture-projects/tmp/

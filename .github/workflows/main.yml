@@ -40,4 +40,5 @@ jobs:
           node-version: "16"
           cache: "yarn"
       - run: yarn --prefer-offline --frozen-lockfile
+      - run: yarn recompile
       - run: yarn lint

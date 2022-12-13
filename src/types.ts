@@ -1,3 +1,4 @@
+import { SafeSignature } from "@gnosis.pm/safe-contracts";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 export interface PendingChanges {
@@ -20,6 +21,7 @@ export interface DeployConfigInput {
   derivationPath?: string;
   mnemonic?: string;
   immediateConfigApply: boolean;
+  priorSignatures: Array<SafeSignature>;
 }
 
 export interface DeployConfig extends DeployConfigInput {

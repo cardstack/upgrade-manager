@@ -4,7 +4,6 @@ import colors from "colors/safe";
 import { Contract } from "ethers";
 import { readJSONSync } from "fs-extra";
 import glob from "glob";
-import { HardhatPluginError } from "hardhat/plugins";
 import { shuffle } from "lodash";
 import difference from "lodash/difference";
 
@@ -16,9 +15,9 @@ import {
   deployNewProxyAndImplementation,
   getOrDeployUpgradeManager,
   getSigner,
+  getSourceChainId,
   log,
   makeFactory,
-  PLUGIN_NAME,
   retryAndWaitForNonceIncrease,
 } from "./util";
 
@@ -27,7 +26,7 @@ export default async function (config: DeployConfig): Promise<{
   pendingChanges: PendingChanges;
   addresses: ContractAddressMap;
 }> {
-  const { network: sourceNetwork, hre } = config;
+  const { hre } = config;
   let defaultLog = log;
 
   const pendingChanges: PendingChanges = {
@@ -37,7 +36,7 @@ export default async function (config: DeployConfig): Promise<{
 
   const addresses: ContractAddressMap = {};
 
-  let previousImpls = implAddresses(sourceNetwork);
+  let previousImpls = implAddresses(config);
 
   let upgradeManager = await getOrDeployUpgradeManager(config);
   let contracts = hre.config.upgradeManager.contracts;
@@ -109,7 +108,6 @@ export default async function (config: DeployConfig): Promise<{
         contractId
       );
 
-      // proxyAddress = readMetadata(`${contractId}Address`, sourceNetwork);
       if (
         currentAddress != AddressZero &&
         (await deployedImplementationMatches(
@@ -230,7 +228,7 @@ export default async function (config: DeployConfig): Promise<{
     }
   }
 
-  let unverifiedImpls = difference(implAddresses(sourceNetwork), previousImpls);
+  let unverifiedImpls = difference(implAddresses(config), previousImpls);
 
   return {
     unverifiedImpls,
@@ -239,29 +237,9 @@ export default async function (config: DeployConfig): Promise<{
   };
 }
 
-function implAddresses(network: string) {
-  let networkId: number;
-  switch (network) {
-    case "sokol":
-      networkId = 77;
-      break;
-    case "xdai":
-      networkId = 100;
-      break;
-    case "goerli":
-      networkId = 5;
-      break;
-    case "hardhat":
-    case "localhost":
-      networkId = 31337;
-      break;
-    default:
-      throw new HardhatPluginError(
-        PLUGIN_NAME,
-        `Do not know network ID for network ${network}`
-      );
-  }
-  let [file] = glob.sync(`./.openzeppelin/*-${networkId}.json`);
+function implAddresses(config: DeployConfig) {
+  let chainId = getSourceChainId(config);
+  let [file] = glob.sync(`./.openzeppelin/*-${chainId}.json`);
   if (!file) {
     return [];
   }
