@@ -1,6 +1,6 @@
 {
   "name": "@cardstack/upgrade-manager",
-  "version": "1.0.0-beta",
+  "version": "1.0.0",
   "description": "Cardstack Smart Contract Upgrade Manager",
   "repository": "github:cardstack/upgrade-manager",
   "author": "Cardstack",
