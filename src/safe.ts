@@ -1,6 +1,6 @@
 import { AddressZero } from "@ethersproject/constants";
 import { AddressOne } from "@gnosis.pm/safe-contracts";
-import { BigNumber } from "ethers";
+import { BigNumber, Contract } from "ethers";
 import { concat } from "ethers/lib/utils";
 import { HardhatPluginError } from "hardhat/plugins";
 import { sortBy } from "lodash";
@@ -137,8 +137,8 @@ export async function safeOwnership(
 export async function safeTransaction({
   config,
   safeAddress,
-  to,
   data,
+  toContract,
   value = 0,
   operation = CALL,
   safeTxGas = 0,
@@ -149,7 +149,7 @@ export async function safeTransaction({
 }: {
   config: DeployConfig;
   safeAddress: string;
-  to: string;
+  toContract: Contract;
   data: string;
   value?: number;
   operation?: number;
@@ -196,7 +196,7 @@ export async function safeTransaction({
   };
 
   let message = {
-    to,
+    to: toContract.address,
     value,
     data,
     operation,
@@ -207,6 +207,11 @@ export async function safeTransaction({
     refundReceiver,
     nonce,
   };
+
+  log(
+    `Proposed call to ${toContract.address}:\n`,
+    formatEncodedCall(toContract, data)
+  );
 
   let signatureBytes = await signer._signTypedData(
     domain,
@@ -238,7 +243,7 @@ export async function safeTransaction({
 
     let receipt = await retryAndWaitForNonceIncrease(config, async () => {
       let tx = await safe.execTransaction(
-        to,
+        toContract.address,
         value,
         data,
         operation,
@@ -347,8 +352,8 @@ export async function addSafeOwner(
   let currentOwners = await safe.getOwners();
   let currentThreshold = await safe.getThreshold();
 
-  log("Current owners", currentOwners.join(","));
-  log("Current threshold", currentThreshold);
+  log("Current owners", currentOwners.join(", "));
+  log("Current threshold", currentThreshold.toString());
 
   if (!newSafeThreshold) {
     newSafeThreshold = currentThreshold.toNumber();
@@ -372,7 +377,7 @@ export async function addSafeOwner(
     newSafeThreshold,
   ]);
 
-  return await safeTransaction({ config, safeAddress, to: safeAddress, data });
+  return await safeTransaction({ config, safeAddress, toContract: safe, data });
 }
 
 export async function removeSafeOwner(
@@ -394,8 +399,8 @@ export async function removeSafeOwner(
   let currentOwners = await safe.getOwners();
   let currentThreshold = await safe.getThreshold();
 
-  log("Current owners", currentOwners.join(","));
-  log("Current threshold", currentThreshold);
+  log("Current owners", currentOwners.join(", "));
+  log("Current threshold", currentThreshold.toString());
 
   if (!newSafeThreshold) {
     newSafeThreshold = currentThreshold.toNumber();
@@ -436,7 +441,7 @@ export async function removeSafeOwner(
     newSafeThreshold,
   ]);
 
-  return await safeTransaction({ config, safeAddress, to: safeAddress, data });
+  return await safeTransaction({ config, safeAddress, toContract: safe, data });
 }
 
 export async function setSafeThreshold(
@@ -457,8 +462,8 @@ export async function setSafeThreshold(
   let currentOwners = await safe.getOwners();
   let currentThreshold = await safe.getThreshold();
 
-  log("Current owners", currentOwners.join(","));
-  log("Current threshold", currentThreshold);
+  log("Current owners", currentOwners.join(", "));
+  log("Current threshold", currentThreshold.toString());
 
   log("New threshold", newSafeThreshold);
 
@@ -466,7 +471,7 @@ export async function setSafeThreshold(
     newSafeThreshold,
   ]);
 
-  return await safeTransaction({ config, safeAddress, to: safeAddress, data });
+  return await safeTransaction({ config, safeAddress, toContract: safe, data });
 }
 
 export async function maybeSafeTransaction(
@@ -494,7 +499,7 @@ export async function maybeSafeTransaction(
     return await safeTransaction({
       config,
       safeAddress: owner,
-      to: upgradeManager.address,
+      toContract: upgradeManager,
       data,
     });
   }

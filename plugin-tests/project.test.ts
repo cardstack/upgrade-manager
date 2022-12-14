@@ -671,7 +671,7 @@ describe("Basic project setup", function () {
     });
   });
 
-  describe.only("deploy:safe-ownership", () => {
+  describe("deploy:safe-ownership", () => {
     it("should transfer the ownership of the upgrade manager to the newly created safe", async function () {
       await setupCreate2Proxy(this.hre);
       await deployGnosisSafeProxyFactoryAndSingleton(this.hre);
