@@ -219,6 +219,10 @@ export async function safeTransaction({
     message
   );
 
+  if (signatureBytes.slice(0, 2) != "0x") {
+    signatureBytes = `0x${signatureBytes}`;
+  }
+
   let signature: SafeSignature = {
     signer: config.deployAddress.toLowerCase(),
     data: signatureBytes,
