@@ -11,6 +11,7 @@ import {
   getSourceProvider,
   getUpgradeManager,
   log,
+  makeFactory,
   PLUGIN_NAME,
 } from "./util";
 
@@ -40,9 +41,37 @@ export async function getProtocolStatus(
 ): Promise<{ table: Table.Table; anyChanged: boolean }> {
   let upgradeManager = await getUpgradeManager(config, true);
 
+  log("Current version:", await upgradeManager.version());
+
   let contractsConfig = config.hre.config.upgradeManager.contracts;
 
   let anyChanged = false;
+
+  let owner = await upgradeManager.owner();
+  log(`The upgrade manager is owned by ${owner}`);
+
+  let GnosisSafe = await makeFactory(config, "GnosisSafe");
+  let safe = GnosisSafe.attach(owner);
+
+  try {
+    let safeVersion = await safe.VERSION();
+    let threshold = await safe.getThreshold();
+    log(
+      `${owner} looks like a safe, version:`,
+      safeVersion,
+      "threshold:",
+      threshold.toNumber()
+    );
+    let owners = await safe.getOwners();
+    log("Owners:");
+    owners.forEach((o) => log(o));
+  } catch (e) {
+    log("Owner does not look like a safe");
+  }
+
+  let proposers = await upgradeManager.getUpgradeProposers();
+  log("Upgrade Proposers:");
+  proposers.forEach((o) => log(o));
 
   let table = new Table({
     head: [
