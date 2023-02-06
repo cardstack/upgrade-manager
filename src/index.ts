@@ -281,36 +281,6 @@ deployTask(
 );
 
 deployTask(
-  "deploy:diff:local",
-  "Shows the diff between local contract code and on-chain code",
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (config: DeployConfig, { contractId, compare }) => {
-    if (compare != "local" && compare != "proposed") {
-      throw new HardhatPluginError(
-        PLUGIN_NAME,
-        "only local or proposed supported for compare argument"
-      );
-    }
-    throw new Error("TODO");
-    // return diff(config, contractId, compare);
-  }
-)
-  .addPositionalParam(
-    "contractId",
-    "The contract id to compare code",
-    undefined,
-    types.string,
-    false
-  )
-  .addPositionalParam(
-    "compare",
-    "choose whether to compare local changes with active on-chain code, or proposed changes",
-    "local",
-    types.string,
-    true
-  );
-
-deployTask(
   "deploy:add-proposer",
   "Adds a proposer",
   (config: DeployConfig, { proposerAddress }) =>
