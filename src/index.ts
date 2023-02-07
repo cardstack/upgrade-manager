@@ -31,6 +31,10 @@ import { upgrade } from "./upgrade"; // lint rule is bugged for this line for so
 
 import "./type-extensions";
 import { describeNetwork, getDeployAddress, log, PLUGIN_NAME } from "./util";
+import {
+  withdrawAllAbstractProposals,
+  withdrawProxyProposal,
+} from "./withdraw-proposed-changes";
 
 extendConfig(
   (config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
@@ -281,34 +285,23 @@ deployTask(
 );
 
 deployTask(
-  "deploy:diff:local",
-  "Shows the diff between local contract code and on-chain code",
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (config: DeployConfig, { contractId, compare }) => {
-    if (compare != "local" && compare != "proposed") {
-      throw new HardhatPluginError(
-        PLUGIN_NAME,
-        "only local or proposed supported for compare argument"
-      );
-    }
-    throw new Error("TODO");
-    // return diff(config, contractId, compare);
-  }
-)
-  .addPositionalParam(
-    "contractId",
-    "The contract id to compare code",
-    undefined,
-    types.string,
-    false
-  )
-  .addPositionalParam(
-    "compare",
-    "choose whether to compare local changes with active on-chain code, or proposed changes",
-    "local",
-    types.string,
-    true
-  );
+  "deploy:withdraw-abstract-proposals",
+  "Withdraw ALL abstract proposals",
+  (config: DeployConfig) => withdrawAllAbstractProposals(config)
+);
+
+deployTask(
+  "deploy:withdraw-proxy-proposal",
+  "Withdraw proxy proposal",
+  (config: DeployConfig, { contractId }) =>
+    withdrawProxyProposal(config, contractId)
+).addPositionalParam(
+  "contractId",
+  "Unique id of proxy contract",
+  undefined,
+  types.string,
+  false
+);
 
 deployTask(
   "deploy:add-proposer",
