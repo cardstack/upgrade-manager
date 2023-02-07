@@ -32,13 +32,13 @@ export async function withdrawProxyProposal(
 ): Promise<SafeSignature[] | undefined> {
   let upgradeManager = await getUpgradeManager(config, true);
   let alreadyPending = await upgradeManager.getProxiesWithPendingChanges();
-  console.log(alreadyPending);
-  // if (!alreadyPending.includes(contractId)) {
-  //   throw new HardhatPluginError(
-  //     PLUGIN_NAME,
-  //     `There are no proposals associated with ${contractId} proxy`
-  //   );
-  // }
+  const proxyName = await upgradeManager.adoptedContractAddresses(contractId);
+  if (!alreadyPending.includes(proxyName)) {
+    throw new HardhatPluginError(
+      PLUGIN_NAME,
+      `There are no proposals associated with ${contractId} proxy`
+    );
+  }
   await retryAndWaitForNonceIncrease(config, async () => {
     upgradeManager.withdrawChanges(contractId);
   });

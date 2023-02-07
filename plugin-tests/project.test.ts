@@ -620,6 +620,13 @@ describe("Basic project setup", function () {
       mockUpgradeableContractAddress,
       mockUpgradeableSecondInstanceAddress,
     ]);
+    await expect(
+      runTask(this.hre, "deploy:withdraw-proxy-proposal", {
+        contractId: "SomeRandomContractId",
+      })
+    ).to.be.rejectedWith(
+      "There are no proposals associated with SomeRandomContractId proxy"
+    );
     await runTask(this.hre, "deploy:withdraw-proxy-proposal", {
       contractId: "MockUpgradeableContract",
     });
