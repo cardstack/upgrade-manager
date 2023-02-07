@@ -590,6 +590,44 @@ describe("Basic project setup", function () {
     ).to.be.rejectedWith(`${HardhatSecondAddress} is not a proposer`);
   });
 
+  it("deploy:withdraw-abstract-proposals", async function () {
+    await setupCreate2Proxy(this.hre);
+    await runTask(this.hre, "deploy");
+    let upgradeManager = await getFixtureProjectUpgradeManager(this);
+    await expect(
+      (await upgradeManager.getProposedAbstractContractsLength()).toNumber()
+    ).to.eq(5);
+    await runTask(this.hre, "deploy:withdraw-abstract-proposals");
+    await expect(
+      (await upgradeManager.getProposedAbstractContractsLength()).toNumber()
+    ).to.eq(0);
+  });
+
+  it("deploy:withdraw-proxy-proposal", async function () {
+    await setupCreate2Proxy(this.hre);
+    await runTask(this.hre, "deploy");
+    let upgradeManager = await getFixtureProjectUpgradeManager(this);
+    let mockUpgradeableContractAddress =
+      await upgradeManager.adoptedContractAddresses("MockUpgradeableContract");
+
+    let mockUpgradeableSecondInstanceAddress =
+      await upgradeManager.adoptedContractAddresses(
+        "MockUpgradeableSecondInstance"
+      );
+    await expect(
+      await upgradeManager.getProxiesWithPendingChanges()
+    ).to.have.members([
+      mockUpgradeableContractAddress,
+      mockUpgradeableSecondInstanceAddress,
+    ]);
+    await runTask(this.hre, "deploy:withdraw-proxy-proposal", {
+      contractId: "MockUpgradeableContract",
+    });
+    await expect(
+      await upgradeManager.getProxiesWithPendingChanges()
+    ).to.have.members([mockUpgradeableSecondInstanceAddress]);
+  });
+
   describe("CREATE2", function () {
     it("deploys the create2 proxy and a contract at a known address", async function () {
       setBalance(
