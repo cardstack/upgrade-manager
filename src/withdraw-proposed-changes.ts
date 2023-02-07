@@ -25,3 +25,22 @@ export async function withdrawAllAbstractProposals(
   });
   return;
 }
+
+export async function withdrawProxyProposal(
+  config: DeployConfig,
+  contractId: string
+): Promise<SafeSignature[] | undefined> {
+  let upgradeManager = await getUpgradeManager(config, true);
+  let alreadyPending = await upgradeManager.getProxiesWithPendingChanges();
+  console.log(alreadyPending);
+  // if (!alreadyPending.includes(contractId)) {
+  //   throw new HardhatPluginError(
+  //     PLUGIN_NAME,
+  //     `There are no proposals associated with ${contractId} proxy`
+  //   );
+  // }
+  await retryAndWaitForNonceIncrease(config, async () => {
+    upgradeManager.withdrawChanges(contractId);
+  });
+  return;
+}

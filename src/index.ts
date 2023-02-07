@@ -31,7 +31,10 @@ import { upgrade } from "./upgrade"; // lint rule is bugged for this line for so
 
 import "./type-extensions";
 import { describeNetwork, getDeployAddress, log, PLUGIN_NAME } from "./util";
-import { withdrawAllAbstractProposals } from "./withdraw-proposed-changes";
+import {
+  withdrawAllAbstractProposals,
+  withdrawProxyProposal,
+} from "./withdraw-proposed-changes";
 
 extendConfig(
   (config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
@@ -285,6 +288,19 @@ deployTask(
   "deploy:withdraw-abstract-proposals",
   "Withdraw ALL abstract proposals",
   (config: DeployConfig) => withdrawAllAbstractProposals(config)
+);
+
+deployTask(
+  "deploy:withdraw-proxy-proposal",
+  "Withdraw proxy proposal",
+  (config: DeployConfig, { contractId }) =>
+    withdrawProxyProposal(config, contractId)
+).addPositionalParam(
+  "contractId",
+  "Unique id of proxy contract",
+  undefined,
+  types.string,
+  false
 );
 
 deployTask(
