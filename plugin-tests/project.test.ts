@@ -601,6 +601,9 @@ describe("Basic project setup", function () {
     await expect(
       (await upgradeManager.getProposedAbstractContractsLength()).toNumber()
     ).to.eq(0);
+    await expect(
+      runTask(this.hre, "deploy:withdraw-abstract-proposals")
+    ).to.be.rejectedWith("There are no abstract contract proposals");
   });
 
   it("deploy:withdraw-proxy-proposal", async function () {
@@ -625,7 +628,7 @@ describe("Basic project setup", function () {
         contractId: "SomeRandomContractId",
       })
     ).to.be.rejectedWith(
-      "There are no proposals associated with SomeRandomContractId proxy"
+      "There are no proxy contract proposals associated with SomeRandomContractId"
     );
     await runTask(this.hre, "deploy:withdraw-proxy-proposal", {
       contractId: "MockUpgradeableContract",

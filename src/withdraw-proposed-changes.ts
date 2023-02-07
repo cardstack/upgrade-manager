@@ -36,7 +36,7 @@ export async function withdrawProxyProposal(
   if (!alreadyPending.includes(proxyName)) {
     throw new HardhatPluginError(
       PLUGIN_NAME,
-      `There are no proposals associated with ${contractId} proxy`
+      `There are no proxy contract proposals associated with ${contractId}`
     );
   }
   await retryAndWaitForNonceIncrease(config, async () => {
