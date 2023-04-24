@@ -3,13 +3,13 @@ import { dirname, resolve } from "path";
 
 import { VoidSigner } from "@ethersproject/abstract-signer";
 import { BaseProvider, JsonRpcProvider } from "@ethersproject/providers";
-import {
-  getProxyFactoryDeployment,
-  getSafeSingletonDeployment,
-} from "@gnosis.pm/safe-deployments";
 import { impersonateAccount } from "@nomicfoundation/hardhat-network-helpers";
 import { getTransparentUpgradeableProxyFactory } from "@openzeppelin/hardhat-upgrades/dist/utils";
 import { hashBytecodeWithoutMetadata } from "@openzeppelin/upgrades-core";
+import {
+  getProxyFactoryDeployment,
+  getSafeSingletonDeployment,
+} from "@safe-global/safe-deployments";
 import colors from "colors/safe";
 import { prompt } from "enquirer";
 import { BigNumber, Contract, ContractFactory } from "ethers";
